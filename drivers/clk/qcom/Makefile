@@ -119,3 +119,5 @@ obj-$(CONFIG_KPSS_XCC) += kpss-xcc.o
 obj-$(CONFIG_QCOM_HFPLL) += hfpll.o
 obj-$(CONFIG_KRAITCC) += krait-cc.o
 obj-$(CONFIG_VIRTIO_CLK) += virtio_clk.o virtio_clk_sm8150.o virtio_clk_sm6150.o virtio_clk_sa8195p.o virtio_clk_direwolf.o
+obj-$(CONFIG_KONA_GCC) += gcc-kona.o
+obj-$(CONFIG_KONA_DISPCC) += dispcc-kona.o

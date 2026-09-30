@@ -866,3 +866,14 @@ config VIRTIO_CLK
 	  Qualcomm Technologies, Inc automotive virtual machine.
 	  Say Y if you want to use pass through peripheral devices such as UART,
 	  SPI, I2C, USB etc.
+config KONA_GCC
+	tristate "KONA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on KONA.
+
+config KONA_DISPCC
+	tristate "KONA Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on KONA.
