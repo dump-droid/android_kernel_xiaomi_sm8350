@@ -1,15 +1,9 @@
-&spf_core_platform {
-	lpass_audio_hw_vote: vote_lpass_audio_hw {
-		compatible = "qcom,audio-ref-clk";
-		qcom,codec-ext-clk-src = <AUDIO_LPASS_AUDIO_HW_VOTE>;
-		#clock-cells = <1>;
-	};
-
+&q6core {
 	lpi_tlmm: lpi_pinctrl@0a7c0000 {
 		compatible = "qcom,lpi-pinctrl";
 		reg = <0x0a7c0000 0x0>;
 		qcom,slew-reg = <0x0a95a000 0x0>;
-		qcom,gpios-count = <19>;
+		qcom,num-gpios = <19>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,

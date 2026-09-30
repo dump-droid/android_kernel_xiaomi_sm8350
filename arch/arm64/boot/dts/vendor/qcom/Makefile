@@ -588,6 +588,18 @@ dtb-$(CONFIG_ARCH_DIREWOLF) += direwolf-ivi-rumi.dtb \
 	direwolf-adas-adp-star.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+
+dtbo-$(CONFIG_ARCH_KONA) += pipa-sm8250-overlay.dtbo
+
+pipa-sm8250-overlay.dtbo-base := kona.dtb kona-v2.dtb kona-v2.1.dtb
+
+else
+
+dtb-$(CONFIG_ARCH_KONA) += kona.dtb kona-v2.dtb kona-v2.1.dtb pipa-sm8250-overlay.dtbo
+
+endif
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo
