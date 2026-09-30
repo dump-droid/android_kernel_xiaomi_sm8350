@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
-
 #ifndef __AUDIO_CODEC_PORT_TYPES_H
 #define __AUDIO_CODEC_PORT_TYPES_H
 
 #define SPKR_L 1
-#define SPKR_L_COMP 2
-#define SPKR_L_BOOST 3
+#define SPKR_L_BOOST 2
+#define SPKR_L_COMP 3
 #define SPKR_L_VI 4
 #define SPKR_R 5
-#define SPKR_R_COMP 6
-#define SPKR_R_BOOST 7
+#define SPKR_R_BOOST 6
+#define SPKR_R_COMP 7
 #define SPKR_R_VI 8
 #define HPH_L 9
 #define HPH_R 10
@@ -50,6 +48,5 @@
 #define SWRM_TX3_CH3 44
 #define SWRM_TX3_CH4 45
 #define SWRM_PCM_IN 46
-#define SWRM_RX_PCM_IN 47
 
 #endif /* __AUDIO_CODEC_PORT_TYPES_H */

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __DT_BINDINGS_QCOM_IPCC_H
@@ -8,7 +8,6 @@
 
 /* Signal IDs for MPROC protocol */
 #define IPCC_MPROC_SIGNAL_GLINK_QMP	0
-#define IPCC_MPROC_SIGNAL_TZ		1
 #define IPCC_MPROC_SIGNAL_SMP2P		2
 #define IPCC_MPROC_SIGNAL_PING		3
 #define IPCC_MPROC_SIGNAL_MAX		4 /* Used by driver only */
@@ -34,7 +33,6 @@
 #define IPCC_CLIENT_PCIE1		14
 #define IPCC_CLIENT_PCIE2		15
 #define IPCC_CLIENT_SPSS		16
-#define IPCC_CLIENT_WPSS		24
-#define IPCC_CLIENT_MAX			25 /* Used by driver only */
+#define IPCC_CLIENT_MAX			17 /* Used by driver only */
 
 #endif
