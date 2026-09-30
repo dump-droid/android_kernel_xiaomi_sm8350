@@ -787,3 +787,11 @@ config CHARGER_WILCO
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY
+config BQ2597X_CHARGE_PUMP_PIPA
+	tristate "BQ2597X Charge Pump for Pipa"
+config MAXIM_PIPA
+	tristate "Maxim battery for Pipa"
+config QPNP_SMB5_PIPA
+	tristate "QPNP SMB5 Charger for Pipa"
+config QPNP_FG_GEN4_PIPA
+	tristate "QPNP FG GEN4 for Pipa"

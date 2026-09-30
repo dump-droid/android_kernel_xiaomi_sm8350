@@ -95,3 +95,5 @@ obj-$(CONFIG_CHARGER_WILCO)	+= wilco-charger.o
 obj-$(CONFIG_QTI_BATTERY_CHARGER)	+= qti_battery_charger_main.o
 qti_battery_charger_main-y += qti_battery_charger.o qti_typec_class.o qti_battery_charger_xiaomi.o
 obj-$(CONFIG_QCOM_POWER_SUPPLY)		+= qcom/
+obj-$(CONFIG_BQ2597X_CHARGE_PUMP_PIPA) += ti/bq2597x_charger_pipa.o ti/pd_policy_manager_pipa.o ti/cp_qc30_pipa.o
+obj-$(CONFIG_MAXIM_PIPA) += maxim_pipa/
