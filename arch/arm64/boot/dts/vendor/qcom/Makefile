@@ -596,7 +596,7 @@ pipa-sm8250-overlay.dtbo-base := kona.dtb kona-v2.dtb kona-v2.1.dtb
 
 else
 
-dtb-$(CONFIG_ARCH_KONA) += kona.dtb kona-v2.dtb kona-v2.1.dtb pipa-sm8250-overlay.dtbo
+dtb-$(CONFIG_ARCH_KONA) += kona.dtb kona-v2.dtb kona-v2.1.dtb
 
 endif
 
