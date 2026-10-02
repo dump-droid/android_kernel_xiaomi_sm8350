@@ -1074,9 +1074,9 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 					BL_UPDATE_DELAY_UNTIL_FIRST_FRAME)
 			sde_encoder_wait_for_event(c_conn->encoder,
 					MSM_ENC_TX_COMPLETE);
-	}
 
-	display->panel->bl_config.allow_bl_update = true;
+		display->panel->bl_config.allow_bl_update = true;
+	}
 
 	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;

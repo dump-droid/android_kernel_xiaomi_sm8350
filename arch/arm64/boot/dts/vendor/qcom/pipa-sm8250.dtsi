@@ -1,5 +1,6 @@
 #include "pipa-pmic-base.dtsi"
 #include "pipa-usb.dtsi"
+#include "pipa-display.dtsi"
 
 &pm8150b_charger {
 	status = "disabled";

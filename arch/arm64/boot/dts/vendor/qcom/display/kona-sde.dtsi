@@ -1,4 +1,5 @@
 #include <dt-bindings/clock/mdss-7nm-pll-clk.h>
+#include <dt-bindings/interconnect/qcom,sm8150.h>
 
 &soc {
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
@@ -219,15 +220,25 @@
 
 		qcom,sde-secure-sid-mask = <0x4000821>;
 
-		/* data and reg bus scale settings */
-		interconnects = <&mmss_noc MASTER_MDP0 &mc_virt SLAVE_EBI1>,
-				<&gem_noc MASTER_APPSS_PROC
-					    &config_noc SLAVE_DISPLAY_CFG>;
-		interconnect-names = "qcom,sde-data-bus0", "qcom,sde-reg-bus";
-		qcom,sde-reg-bus,vectors-KBps = <0 0>,
-			<0 76800>,
-			<0 150000>,
-			<0 300000>;
+		/* Kona uses the legacy MSM bus driver for display bandwidth votes. */
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "mdss_sde";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>, <23 512 0 0>,
+				<22 512 0 6400000>, <23 512 0 6400000>,
+				<22 512 0 6400000>, <23 512 0 6400000>;
+		};
+
+		qcom,sde-reg-bus {
+			qcom,msm-bus,name = "mdss_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps = <1 590 0 0>,
+				<1 590 0 76800>, <1 590 0 150000>,
+				<1 590 0 300000>;
+		};
 
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
@@ -281,6 +292,22 @@
 			};
 		};
 
+	};
+
+	smmu_sde_unsec: qcom,smmu_sde_unsec_cb {
+		compatible = "qcom,smmu_sde_unsec";
+		iommus = <&apps_smmu 0x820 0x402>;
+		qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+		qcom,iommu-faults = "non-fatal";
+		qcom,iommu-earlymap;
+	};
+
+	smmu_sde_sec: qcom,smmu_sde_sec_cb {
+		compatible = "qcom,smmu_sde_sec";
+		iommus = <&apps_smmu 0x821 0x400>;
+		qcom,iommu-dma-addr-pool = <0x00020000 0xfffe0000>;
+		qcom,iommu-faults = "non-fatal";
+		qcom,iommu-vmid = <0xa>;
 	};
 
 	sde_dp: qcom,dp_display@ae90000 {
@@ -408,10 +435,28 @@
 			<&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
 		clock-names = "vsync_clk", "gdsc_clk", "iface_clk";
 
-		interconnects =
-			<&mmss_noc MASTER_MDP0_DISP &gem_noc SLAVE_LLCC_DISP>,
-			<&mc_virt MASTER_LLCC_DISP &mc_virt SLAVE_EBI1_DISP>;
-		interconnect-names = "qcom,sde-data-bus0","qcom,sde-ebi-bus";
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "disp_rsc_mnoc_llcc";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<20003 20513 0 0>, <20004 20513 0 0>,
+				<20003 20513 0 6400000>,
+				<20004 20513 0 6400000>,
+				<20003 20513 0 6400000>,
+				<20004 20513 0 6400000>;
+		};
+
+		qcom,sde-ebi-bus {
+			qcom,msm-bus,name = "disp_rsc_ebi";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps = <20000 20512 0 0>,
+				<20000 20512 0 6400000>,
+				<20000 20512 0 6400000>;
+		};
 	};
 
 	mdss_rotator: qcom,mdss_rotator@aea8800 {
