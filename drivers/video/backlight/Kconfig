@@ -289,6 +289,13 @@ config BACKLIGHT_PM8941_WLED
 	  If you have the Qualcomm PM8941, say Y to enable a driver for the
 	  WLED block.
 
+config BACKLIGHT_KTZ8866
+	tristate "KTZ8866 I2C Backlight Driver"
+	depends on I2C && GPIOLIB
+	help
+	  Say Y here to enable backlight control for the KTZ8866 LED driver
+	  used by the Xiaomi Pad 6 (pipa).
+
 config BACKLIGHT_QCOM_SPMI_WLED
 	tristate "Qualcomm Technologies, Inc. WLED Driver"
 	select REGMAP

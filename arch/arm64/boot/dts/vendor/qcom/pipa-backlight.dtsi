@@ -1,0 +1,16 @@
+/* KTZ8866 backlight controller for the pipa M82 display. */
+
+&qupv3_se11_i2c {
+	status = "okay";
+
+	ktz8866@11 {
+		compatible = "ktz,ktz8866";
+		reg = <0x11>;
+		ktz8866,hwen-gpio = <&tlmm 139 0>;
+		ktz8866,enp-gpio = <&tlmm 130 0>;
+		ktz8866,enn-gpio = <&tlmm 131 0>;
+		ktz8866,panelid-gpio = <&tlmm 30 0>;
+		ktz8866,backlight-conf-disable;
+		ktz8866,backlight-HBM-enable;
+	};
+};
