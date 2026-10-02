@@ -4927,5 +4927,6 @@
 #include "msm-arm-smmu-kona.dtsi"
 #include "kona-pinctrl.dtsi"
 #include "kona-smp2p.dtsi"
+#include "kona-usb.dtsi"
 #include "kona-pm.dtsi"
 #include "kona-qupv3.dtsi"
