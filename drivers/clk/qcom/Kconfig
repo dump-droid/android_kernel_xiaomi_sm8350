@@ -431,6 +431,15 @@ config MSM_GCC_LAHAINA
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
+config MSM_GCC_KONA
+	tristate "KONA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  KONA devices. It provides clocks for peripherals such as UART, I2C,
+	  USB and UFS.
+
 config MSM_VIDEOCC_LAHAINA
 	tristate "LAHAINA Video Clock Controller"
 	select MSM_GCC_LAHAINA
