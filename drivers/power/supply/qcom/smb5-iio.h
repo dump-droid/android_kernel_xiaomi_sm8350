@@ -85,7 +85,7 @@ struct smb5_iio_prop_channels {
 	long info_mask;
 };
 
-#define PARAM(chan) PSY_IIO_##chan
+#define SMB5_PARAM(chan) PSY_IIO_##chan
 
 #define SMB5_CHAN(_dname, _chan, _type, _mask)		\
 	{								\
@@ -96,39 +96,39 @@ struct smb5_iio_prop_channels {
 	},								\
 
 #define SMB5_CHAN_VOLT(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_VOLTAGE, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_CUR(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_CURRENT, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_RES(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_RESISTANCE, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_TEMP(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_POWER(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_POWER, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_CAP(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_CAPACITANCE, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_COUNT(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_COUNT, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_INDEX(_dname, chan)					\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_INDEX, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 #define SMB5_CHAN_ACTIVITY(_dname, chan)				\
-	[PARAM(chan)] = SMB5_CHAN(_dname, PARAM(chan),		\
+	[SMB5_PARAM(chan)] = SMB5_CHAN(_dname, SMB5_PARAM(chan),		\
 			IIO_ACTIVITY, BIT(IIO_CHAN_INFO_PROCESSED))	\
 
 static const struct smb5_iio_prop_channels smb5_chans_pmic[] = {
@@ -202,6 +202,8 @@ static const struct smb5_iio_prop_channels smb5_chans_pmic[] = {
 	SMB5_CHAN_ACTIVITY("battery_fcc_stepper_enable", FCC_STEPPER_ENABLE)
 	SMB5_CHAN_INDEX("usb_typec_accessory_mode", TYPEC_ACCESSORY_MODE)
 };
+
+#undef SMB5_PARAM
 
 struct iio_channel **get_ext_channels(struct device *dev,
 	const char *const *channel_map, int size);

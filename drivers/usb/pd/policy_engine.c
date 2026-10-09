@@ -172,20 +172,20 @@ static const char * const usbpd_ext_msg_strings[] = {
 };
 
 enum iio_psy_property {
-	POWER_SUPPLY_PROP_PD_ACTIVE = 0,
-	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
-	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
-	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
-	POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
-	POWER_SUPPLY_PROP_TYPEC_SRC_RP,
-	POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
-	POWER_SUPPLY_PROP_PD_CURRENT_MAX,
-	POWER_SUPPLY_PROP_PR_SWAP,
-	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
-	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_REAL_TYPE,
-	POWER_SUPPLY_PROP_TYPEC_MODE,
-	POWER_SUPPLY_PROP_PE_START,
+	IIO_PROP_PD_ACTIVE = 0,
+	IIO_PROP_TYPEC_CC_ORIENTATION,
+	IIO_PROP_CONNECTOR_TYPE,
+	IIO_PROP_TYPEC_POWER_ROLE,
+	IIO_PROP_PD_USB_SUSPEND_SUPPORTED,
+	IIO_PROP_TYPEC_SRC_RP,
+	IIO_PROP_PD_IN_HARD_RESET,
+	IIO_PROP_PD_CURRENT_MAX,
+	IIO_PROP_PR_SWAP,
+	IIO_PROP_PD_VOLTAGE_MIN,
+	IIO_PROP_PD_VOLTAGE_MAX,
+	IIO_PROP_REAL_TYPE,
+	IIO_PROP_TYPEC_MODE,
+	IIO_PROP_PE_START,
 	POWER_SUPPLY_IIO_PROP_MAX,
 };
 
@@ -532,12 +532,37 @@ static void handle_state_prs_snk_src_source_on(struct usbpd *pd,
 
 static const struct usbpd_state_handler state_handlers[];
 
-int usbpd_get_psy_iio_property(struct usbpd *pd,
-		enum iio_psy_property prop, union power_supply_propval *val)
+static int psy_prop_to_iio_channel(enum power_supply_property prop)
 {
-	int ret, value;
+	switch (prop) {
+	case POWER_SUPPLY_PROP_PD_ACTIVE: return IIO_PROP_PD_ACTIVE;
+	case POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION: return IIO_PROP_TYPEC_CC_ORIENTATION;
+	case POWER_SUPPLY_PROP_CONNECTOR_TYPE: return IIO_PROP_CONNECTOR_TYPE;
+	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE: return IIO_PROP_TYPEC_POWER_ROLE;
+	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED: return IIO_PROP_PD_USB_SUSPEND_SUPPORTED;
+	case POWER_SUPPLY_PROP_TYPEC_SRC_RP: return IIO_PROP_TYPEC_SRC_RP;
+	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET: return IIO_PROP_PD_IN_HARD_RESET;
+	case POWER_SUPPLY_PROP_PD_CURRENT_MAX: return IIO_PROP_PD_CURRENT_MAX;
+	case POWER_SUPPLY_PROP_PR_SWAP: return IIO_PROP_PR_SWAP;
+	case POWER_SUPPLY_PROP_PD_VOLTAGE_MIN: return IIO_PROP_PD_VOLTAGE_MIN;
+	case POWER_SUPPLY_PROP_PD_VOLTAGE_MAX: return IIO_PROP_PD_VOLTAGE_MAX;
+	case POWER_SUPPLY_PROP_REAL_TYPE: return IIO_PROP_REAL_TYPE;
+	case POWER_SUPPLY_PROP_TYPEC_MODE: return IIO_PROP_TYPEC_MODE;
+	case POWER_SUPPLY_PROP_PE_START: return IIO_PROP_PE_START;
+	default: return -EINVAL;
+	}
+}
 
-	ret = iio_read_channel_processed(pd->iio_channels[prop], &value);
+int usbpd_get_psy_iio_property(struct usbpd *pd,
+		enum power_supply_property prop, union power_supply_propval *val)
+{
+	int ret, value, ch;
+
+	ch = psy_prop_to_iio_channel(prop);
+	if (ch < 0)
+		return ch;
+
+	ret = iio_read_channel_processed(pd->iio_channels[ch], &value);
 	if (ret < 0) {
 		usbpd_err(&pd->dev, "failed to get IIO property: %d\n", prop);
 		return ret;
@@ -548,11 +573,15 @@ int usbpd_get_psy_iio_property(struct usbpd *pd,
 }
 
 int usbpd_set_psy_iio_property(struct usbpd *pd,
-		enum iio_psy_property prop, union power_supply_propval *val)
+		enum power_supply_property prop, union power_supply_propval *val)
 {
-	int ret;
+	int ret, ch;
 
-	ret = iio_write_channel_raw(pd->iio_channels[prop], val->intval);
+	ch = psy_prop_to_iio_channel(prop);
+	if (ch < 0)
+		return ch;
+
+	ret = iio_write_channel_raw(pd->iio_channels[ch], val->intval);
 	if (ret < 0) {
 		usbpd_err(&pd->dev, "failed to set IIO property: %d\n", prop);
 		return ret;
