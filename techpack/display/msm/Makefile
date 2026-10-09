@@ -164,4 +164,4 @@ msm_drm-$(CONFIG_MSM_SDE_ROTATOR) += ../rotator/sde_rotator_dev.o \
 
 obj-$(CONFIG_DISPLAY_BUILD)	+= msm_drm.o
 
-obj-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
+msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o

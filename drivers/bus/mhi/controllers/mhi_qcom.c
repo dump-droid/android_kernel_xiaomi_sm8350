@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
-#include <asm/arch_timer.h>
+#include <clocksource/arm_arch_timer.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -598,7 +598,7 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 /* capture host SoC XO time in ticks */
 static u64 mhi_time_get(struct mhi_controller *mhi_cntrl, void *priv)
 {
-	return arch_counter_get_cntvct();
+	return arch_timer_read_counter();
 }
 
 static ssize_t timeout_ms_show(struct device *dev,

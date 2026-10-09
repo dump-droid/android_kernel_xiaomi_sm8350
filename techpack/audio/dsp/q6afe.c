@@ -6886,7 +6886,7 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	ret = afe_send_cmd_port_start(port_id);
 #if defined(CONFIG_TARGET_PRODUCT_LISA) || defined(CONFIG_TARGET_PRODUCT_MONA) || defined(CONFIG_TARGET_PRODUCT_ZIJIN) || defined(CONFIG_TARGET_PRODUCT_TAOYAO) || defined(CONFIG_TARGET_PRODUCT_REDWOOD)
 #else
-#if CONFIG_MSM_CSPL
+#ifdef CONFIG_MSM_CSPL
 	if (ret == 0)
 		crus_afe_port_start(port_id);
 #endif
@@ -10110,7 +10110,7 @@ int afe_close(int port_id)
 
 #if defined(CONFIG_TARGET_PRODUCT_LISA) || defined(CONFIG_TARGET_PRODUCT_MONA) || defined(CONFIG_TARGET_PRODUCT_ZIJIN) || defined(CONFIG_TARGET_PRODUCT_TAOYAO) || defined(CONFIG_TARGET_PRODUCT_REDWOOD)
 #else
-#if CONFIG_MSM_CSPL
+#ifdef CONFIG_MSM_CSPL
 	crus_afe_port_close(port_id);
 #endif
 #endif

@@ -17,6 +17,10 @@
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
+
+#ifndef CONFIG_IOMMU_IOVA_ALIGNMENT
+#define CONFIG_IOMMU_IOVA_ALIGNMENT 9
+#endif
 #include <linux/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/ktime.h>

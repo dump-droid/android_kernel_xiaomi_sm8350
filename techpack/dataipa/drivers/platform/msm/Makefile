@@ -13,6 +13,11 @@ include $(srctree)/techpack/dataipa/config/dataipa_GKI.conf
 endif
 endif
 
+ifeq ($(CONFIG_ARCH_KONA), y)
+LINUXINCLUDE    += -include $(srctree)/techpack/dataipa/config/dataipa.h
+include $(srctree)/techpack/dataipa/config/dataipa_QGKI.conf
+endif
+
 ifeq ($(CONFIG_ARCH_HOLI), y)
 LINUXINCLUDE    += -include $(srctree)/techpack/dataipa/config/dataipa.h
 ifeq ($(CONFIG_QGKI),y)

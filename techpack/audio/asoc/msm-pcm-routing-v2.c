@@ -179,6 +179,9 @@ static uint32_t mclk_cfg_freq;
 #ifdef CONFIG_MSM_CSPL
 	extern void msm_crus_pb_add_controls(struct snd_soc_component *platform);
 	extern void msm_crus_pb_set_copp_idx(int port_id, int copp_idx);
+#else
+	static inline void msm_crus_pb_add_controls(struct snd_soc_component *platform) {}
+	static inline void msm_crus_pb_set_copp_idx(int port_id, int copp_idx) {}
 #endif
 
 #define WEIGHT_0_DB 0x4000
