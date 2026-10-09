@@ -287,6 +287,17 @@ int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 		return 0;
 	}
 
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
+	if (rclk->hw.init) {
+		if (rclk->hw.init->vdd_class && !rclk->vdd_data.vdd_class)
+			rclk->vdd_data.vdd_class = rclk->hw.init->vdd_class;
+		if (rclk->hw.init->rate_max && !rclk->vdd_data.rate_max)
+			rclk->vdd_data.rate_max = rclk->hw.init->rate_max;
+		if (rclk->hw.init->num_rate_max && !rclk->vdd_data.num_rate_max)
+			rclk->vdd_data.num_rate_max = rclk->hw.init->num_rate_max;
+	}
+#endif
+
 	ret = devm_clk_hw_register(dev, &rclk->hw);
 	if (!ret)
 		list_add(&rclk->list_node, &clk_regmap_list);

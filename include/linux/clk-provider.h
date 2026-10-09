@@ -307,6 +307,12 @@ struct clk_init_data {
 	const struct clk_hw		**parent_hws;
 	u8			num_parents;
 	unsigned long		flags;
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
+	struct clk_vdd_class	*vdd_class;
+	unsigned long		*rate_max;
+	int			num_rate_max;
+	unsigned int		bus_cl_id;
+#endif
 };
 
 /**
