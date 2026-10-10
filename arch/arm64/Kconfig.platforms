@@ -404,6 +404,8 @@ endmenu
 config ARCH_KONA
 	bool "Qualcomm Technologies, Inc. KONA"
 	depends on ARCH_QCOM
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_CORE
 	help
 	  This enables support for the KONA chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.

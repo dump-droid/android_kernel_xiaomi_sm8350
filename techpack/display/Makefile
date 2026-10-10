@@ -2,13 +2,8 @@
 
 # auto-detect subdirs
 ifeq ($(CONFIG_ARCH_KONA), y)
-     ifeq ($(CONFIG_QGKI), y)
-		include $(srctree)/techpack/display/config/konadisp.conf
+	include $(srctree)/techpack/display/config/konadisp.conf
 LINUXINCLUDE    += -include $(srctree)/techpack/display/config/konadispconf.h
-     else
-		include $(srctree)/techpack/display/config/gki_konadisp.conf
-LINUXINCLUDE    += -include $(srctree)/techpack/display/config/gki_konadispconf.h
-     endif
 endif
 
 ifeq ($(CONFIG_ARCH_LAHAINA), y)
