@@ -49,6 +49,7 @@ config VIDEO_TUNER
 config V4L2_MEM2MEM_DEV
 	tristate
 	depends on VIDEOBUF2_CORE
+	default y if ARCH_KONA
 
 # Used by LED subsystem flash drivers
 config V4L2_FLASH_LED_CLASS
