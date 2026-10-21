@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config ONEWIRE_GPIO_PIPA
+	bool "Xiaomi Pipa GPIO one-wire controller"
+	depends on GPIOLIB && OF
+	help
+	  Enable the Xiaomi Pipa GPIO based one-wire controllers used by the
+	  battery authentication chips.
