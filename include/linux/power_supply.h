@@ -178,6 +178,24 @@ enum power_supply_property {
 	/* Internal controls used by the QNovo battery charging engine. */
 	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	/* Pipa battery authentication interface. */
+	POWER_SUPPLY_PROP_ROMID,
+	POWER_SUPPLY_PROP_DS_STATUS,
+	POWER_SUPPLY_PROP_PAGENUMBER,
+	POWER_SUPPLY_PROP_PAGEDATA,
+	POWER_SUPPLY_PROP_AUTHEN_RESULT,
+	POWER_SUPPLY_PROP_SESSION_SEED,
+	POWER_SUPPLY_PROP_S_SECRET,
+	POWER_SUPPLY_PROP_CHALLENGE,
+	POWER_SUPPLY_PROP_AUTH_ANON,
+	POWER_SUPPLY_PROP_AUTH_BDCONST,
+	POWER_SUPPLY_PROP_PAGE0_DATA,
+	POWER_SUPPLY_PROP_PAGE1_DATA,
+	POWER_SUPPLY_PROP_VERIFY_MODEL_NAME,
+	POWER_SUPPLY_PROP_CHIP_OK,
+	POWER_SUPPLY_PROP_MAXIM_BATT_CYCLE_COUNT,
+#endif
 };
 
 enum power_supply_type {
@@ -198,6 +216,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,		/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_HVDCP_3P5,	/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_FLOAT,		/* Floating charger */
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	POWER_SUPPLY_TYPE_BATT_VERIFY,
+#endif
 };
 
 enum power_supply_usb_type {
@@ -247,6 +268,9 @@ enum power_supply_notifier_events {
 union power_supply_propval {
 	int intval;
 	const char *strval;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	unsigned char arrayval[50];
+#endif
 };
 
 struct device_node;

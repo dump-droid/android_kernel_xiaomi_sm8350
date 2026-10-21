@@ -6,3 +6,10 @@ config ONEWIRE_GPIO_PIPA
 	help
 	  Enable the Xiaomi Pipa GPIO based one-wire controllers used by the
 	  battery authentication chips.
+
+config BATT_VERIFY_BY_DS28E16_PIPA
+	bool "Xiaomi Pipa DS28E16 battery authentication"
+	depends on ONEWIRE_GPIO_PIPA && POWER_SUPPLY
+	help
+	  Enable DS28E16 authentication for the Pipa battery packs connected to
+	  the master and slave GPIO one-wire controllers.

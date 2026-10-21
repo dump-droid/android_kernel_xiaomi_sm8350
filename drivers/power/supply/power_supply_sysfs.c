@@ -43,6 +43,16 @@ struct power_supply_attr {
 #define POWER_SUPPLY_ENUM_ATTR(_name)	\
 	_POWER_SUPPLY_ENUM_ATTR(_name, POWER_SUPPLY_ ## _name ## _TEXT)
 
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+#define POWER_SUPPLY_PIPA_ATTR(_prop, _name)		\
+	[POWER_SUPPLY_PROP_ ## _prop] = {		\
+		.prop_name = #_prop,			\
+		.attr_name = #_name,			\
+		.text_values = NULL,			\
+		.text_values_len = 0,			\
+	}
+#endif
+
 static const char * const POWER_SUPPLY_TYPE_TEXT[] = {
 	[POWER_SUPPLY_TYPE_UNKNOWN]		= "Unknown",
 	[POWER_SUPPLY_TYPE_BATTERY]		= "Battery",
@@ -57,6 +67,9 @@ static const char * const POWER_SUPPLY_TYPE_TEXT[] = {
 	[POWER_SUPPLY_TYPE_USB_PD_DRP]		= "USB_PD_DRP",
 	[POWER_SUPPLY_TYPE_APPLE_BRICK_ID]	= "BrickID",
 	[POWER_SUPPLY_TYPE_WIRELESS]		= "Wireless",
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	[POWER_SUPPLY_TYPE_BATT_VERIFY]		= "Batt_Verify",
+#endif
 };
 
 static const char * const POWER_SUPPLY_USB_TYPE_TEXT[] = {
@@ -220,6 +233,23 @@ static struct power_supply_attr power_supply_attrs[] = {
 		.text_values = NULL,
 		.text_values_len = 0,
 	},
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	POWER_SUPPLY_PIPA_ATTR(ROMID, romid),
+	POWER_SUPPLY_PIPA_ATTR(DS_STATUS, ds_status),
+	POWER_SUPPLY_PIPA_ATTR(PAGENUMBER, pagenumber),
+	POWER_SUPPLY_PIPA_ATTR(PAGEDATA, pagedata),
+	POWER_SUPPLY_PIPA_ATTR(AUTHEN_RESULT, authen_result),
+	POWER_SUPPLY_PIPA_ATTR(SESSION_SEED, session_seed),
+	POWER_SUPPLY_PIPA_ATTR(S_SECRET, s_secret),
+	POWER_SUPPLY_PIPA_ATTR(CHALLENGE, challenge),
+	POWER_SUPPLY_PIPA_ATTR(AUTH_ANON, auth_anon),
+	POWER_SUPPLY_PIPA_ATTR(AUTH_BDCONST, auth_bdconst),
+	POWER_SUPPLY_PIPA_ATTR(PAGE0_DATA, page0_data),
+	POWER_SUPPLY_PIPA_ATTR(PAGE1_DATA, page1_data),
+	POWER_SUPPLY_PIPA_ATTR(VERIFY_MODEL_NAME, verify_model_name),
+	POWER_SUPPLY_PIPA_ATTR(CHIP_OK, chip_ok),
+	POWER_SUPPLY_PIPA_ATTR(MAXIM_BATT_CYCLE_COUNT, maxim_batt_cycle_count),
+#endif
 };
 
 static struct attribute *
@@ -306,6 +336,29 @@ static ssize_t power_supply_show_property(struct device *dev,
 		ret = power_supply_show_usb_type(dev, psy->desc,
 						&value, buf);
 		break;
+#ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
+	case POWER_SUPPLY_PROP_ROMID:
+	case POWER_SUPPLY_PROP_DS_STATUS:
+		ret = scnprintf(buf, PAGE_SIZE,
+			"%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
+			value.arrayval[0], value.arrayval[1], value.arrayval[2],
+			value.arrayval[3], value.arrayval[4], value.arrayval[5],
+			value.arrayval[6], value.arrayval[7]);
+		break;
+	case POWER_SUPPLY_PROP_PAGE0_DATA:
+	case POWER_SUPPLY_PROP_PAGE1_DATA:
+	case POWER_SUPPLY_PROP_PAGEDATA:
+		ret = scnprintf(buf, PAGE_SIZE,
+			"%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
+			value.arrayval[0], value.arrayval[1], value.arrayval[2],
+			value.arrayval[3], value.arrayval[4], value.arrayval[5],
+			value.arrayval[6], value.arrayval[7], value.arrayval[8],
+			value.arrayval[9], value.arrayval[10], value.arrayval[11],
+			value.arrayval[12], value.arrayval[13], value.arrayval[14],
+			value.arrayval[15]);
+		break;
+	case POWER_SUPPLY_PROP_VERIFY_MODEL_NAME:
+#endif
 	case POWER_SUPPLY_PROP_MODEL_NAME ... POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = sprintf(buf, "%s\n", value.strval);
 		break;
