@@ -1,4 +1,5 @@
 #include <dt-bindings/clock/qcom,gcc-kona.h>
+#include <dt-bindings/interconnect/qcom,sm8250.h>
 
 &soc {
 	pcie0: qcom,pcie@1c00000 {
@@ -55,12 +56,9 @@
 				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
 				RPMH_REGULATOR_LEVEL_NOM 100000000>;
 
-		qcom,msm-bus,name = "pcie0";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<45 512 0 0>,
-				<45 512 500 800>;
+		interconnects = <&aggre2_noc MASTER_PCIE
+				&mc_virt SLAVE_EBI_CH0>;
+		interconnect-names = "icc_path";
 
 		clocks = <&clock_gcc GCC_PCIE_0_PIPE_CLK>,
 			<&clock_rpmh RPMH_CXO_CLK>,
@@ -303,12 +301,9 @@
 				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
 				RPMH_REGULATOR_LEVEL_NOM 100000000>;
 
-		qcom,msm-bus,name = "pcie1";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<100 512 0 0>,
-				<100 512 500 800>;
+		interconnects = <&aggre2_noc MASTER_PCIE_1
+				&mc_virt SLAVE_EBI_CH0>;
+		interconnect-names = "icc_path";
 
 		clocks = <&clock_gcc GCC_PCIE_1_PIPE_CLK>,
 			<&clock_rpmh RPMH_CXO_CLK>,
@@ -583,12 +578,11 @@
 				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000
 				RPMH_REGULATOR_LEVEL_NOM 100000000>;
 
-		qcom,msm-bus,name = "pcie2";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<108 512 0 0>,
-				<108 512 500 800>;
+		interconnects = <&aggre1_noc MASTER_PCIE_2
+				&mc_virt SLAVE_EBI_CH0>,
+				<&aggre1_noc MASTER_PCIE_2
+				&mc_virt SLAVE_EBI_CH0>;
+		interconnect-names = "icc_path", "ep_icc_path";
 
 		clocks = <&clock_gcc GCC_PCIE_2_PIPE_CLK>,
 			<&clock_rpmh RPMH_CXO_CLK>,
