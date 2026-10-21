@@ -9,6 +9,7 @@
 #include <linux/regmap.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
+#include <linux/math64.h>
 #include <linux/regulator/driver.h>
 #include <linux/irq.h>
 #include <linux/iio/consumer.h>
@@ -803,6 +804,222 @@ static int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
 	return rc;
 }
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+static int smb5_config_iterm(struct smb_charger *chg, int hi_thresh,
+			int low_thresh)
+{
+	int max_limit_ma, rc;
+	s16 raw_thresh;
+	u8 data[2];
+
+	max_limit_ma = chg->chg_param.smb_version == PMI632 ?
+			ITERM_LIMITS_PMI632_MA : ITERM_LIMITS_PM8150B_MA;
+	if (hi_thresh < -max_limit_ma || hi_thresh > max_limit_ma ||
+		low_thresh < -max_limit_ma || low_thresh > max_limit_ma)
+		return -EINVAL;
+
+	rc = smblib_masked_write(chg, CHGR_ADC_TERM_CFG_REG,
+			TERM_BASED_ON_SYNC_CONV_OR_SAMPLE_CNT,
+			TERM_BASED_ON_SAMPLE_CNT);
+	if (rc < 0)
+		return rc;
+
+	if (hi_thresh) {
+		raw_thresh = div_s64((s64)hi_thresh * ADC_CHG_ITERM_MASK,
+				max_limit_ma);
+		raw_thresh = sign_extend32(raw_thresh, 15);
+		data[0] = raw_thresh >> 8;
+		data[1] = raw_thresh & 0xff;
+		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
+				data, sizeof(data));
+		if (rc < 0)
+			return rc;
+	}
+
+	if (low_thresh) {
+		raw_thresh = div_s64((s64)low_thresh * ADC_CHG_ITERM_MASK,
+				max_limit_ma);
+		raw_thresh = sign_extend32(raw_thresh, 15);
+		data[0] = raw_thresh >> 8;
+		data[1] = raw_thresh & 0xff;
+		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_LO_THD_MSB_REG,
+				data, sizeof(data));
+		if (rc < 0)
+			return rc;
+	}
+
+	return 0;
+}
+
+int smblib_set_fastcharge_iterm(struct smb_charger *chg, int iterm)
+{
+	return smb5_config_iterm(chg, iterm, 50);
+}
+
+int smblib_get_fastcharge_mode(struct smb_charger *chg)
+{
+	union power_supply_propval pval = { 0 };
+	int rc;
+
+	if (!chg->bms_psy)
+		return 0;
+
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	if (rc < 0)
+		return rc;
+
+	return pval.intval;
+}
+
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+static int smb5_config_sys_iterm(struct smb_charger *chg, bool enable)
+{
+	static const enum power_supply_property props[] = {
+		POWER_SUPPLY_PROP_SYS_TERMINATION_CURRENT,
+		POWER_SUPPLY_PROP_VBATT_FULL_VOL,
+		POWER_SUPPLY_PROP_KI_COEFF_CURRENT,
+	};
+	union power_supply_propval pval = { .intval = enable };
+	int i, rc;
+
+	for (i = 0; i < ARRAY_SIZE(props); i++) {
+		rc = power_supply_set_property(chg->bms_psy, props[i], &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Failed to set FG FFC property %d, rc=%d\n",
+				props[i], rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+#endif
+
+int smblib_set_fastcharge_mode(struct smb_charger *chg, bool enable)
+{
+	union power_supply_propval pval = { 0 };
+	int rc, term_current;
+
+	if (!chg->support_ffc)
+		return -EOPNOTSUPP;
+	if (!chg->bms_psy)
+		return -ENODEV;
+
+	if (enable) {
+		rc = power_supply_get_property(chg->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &pval);
+		if (rc < 0)
+			return rc;
+		if (pval.intval >= 95)
+			enable = false;
+
+		if (enable) {
+			rc = power_supply_get_property(chg->bms_psy,
+					POWER_SUPPLY_PROP_TEMP, &pval);
+			if (rc < 0)
+				return rc;
+			if (pval.intval >= chg->chg_warm_threshold ||
+				pval.intval <= chg->chg_cool_threshold)
+				enable = false;
+		}
+	}
+
+	pval.intval = enable;
+	rc = power_supply_set_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	if (rc < 0)
+		return rc;
+
+	if (enable) {
+		rc = power_supply_get_property(chg->bms_psy,
+				POWER_SUPPLY_PROP_FFC_TERMINATION_CURRENT, &pval);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Failed to read FFC termination current, rc=%d\n", rc);
+			pval.intval = 0;
+			power_supply_set_property(chg->bms_psy,
+					POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+			enable = false;
+			term_current = chg->chg_term_current_thresh_hi_from_dts;
+		} else {
+			term_current = pval.intval;
+		}
+	} else {
+		term_current = chg->chg_term_current_thresh_hi_from_dts;
+	}
+
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+	rc = smb5_config_sys_iterm(chg, enable);
+	if (rc < 0)
+		return rc;
+#endif
+
+	rc = smb5_config_iterm(chg, term_current, 50);
+	if (rc < 0)
+		return rc;
+
+	rc = vote(chg->fv_votable, NON_FFC_VFLOAT_VOTER, !enable,
+			chg->non_fcc_batt_profile_fv_uv);
+	if (rc < 0)
+		smblib_err(chg, "Failed to update non-FFC float vote, rc=%d\n", rc);
+
+	return rc;
+}
+
+static void smblib_pipa_update_second_ffc_termination(struct smb_charger *chg)
+{
+	union power_supply_propval pval = { 0 };
+	int input_present, capacity, batt_temp, fastcharge_mode, rc;
+
+	if (!chg->support_second_ffc_term_current || !chg->bms_psy ||
+		!chg->batt_psy)
+		return;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return;
+	fastcharge_mode = smblib_get_fastcharge_mode(chg);
+	if (!input_present || fastcharge_mode <= 0) {
+		chg->flag_second_ffc_term_current = false;
+		return;
+	}
+
+	rc = power_supply_get_property(chg->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+	if (rc < 0 || pval.intval != POWER_SUPPLY_CHARGE_TYPE_TAPER ||
+		chg->flag_second_ffc_term_current)
+		return;
+
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (rc < 0)
+		return;
+	capacity = pval.intval;
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_TEMP, &pval);
+	if (rc < 0)
+		return;
+	batt_temp = pval.intval;
+	if (capacity != 100 || batt_temp <= PIPA_SECOND_FFC_TERM_TEMP ||
+		batt_temp >= chg->chg_warm_threshold)
+		return;
+
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_FFC_TERMINATION_CURRENT, &pval);
+	if (rc < 0)
+		return;
+	if (pval.intval - chg->support_second_ffc_term_current_diff <
+		-ITERM_LIMITS_PM8150B_MA)
+		return;
+
+	rc = smblib_set_fastcharge_iterm(chg,
+			pval.intval - chg->support_second_ffc_term_current_diff);
+	if (!rc)
+		chg->flag_second_ffc_term_current = true;
+}
+#endif
+
 static int smblib_usb_pd_adapter_allowance_override(struct smb_charger *chg,
 					u8 allowed_voltage)
 {
@@ -1286,6 +1503,9 @@ static int smblib_notifier_call(struct notifier_block *nb,
 	struct smb_charger *chg = container_of(nb, struct smb_charger, nb);
 
 	if (!strcmp(psy->desc->name, "bms")) {
+#ifdef CONFIG_QPNP_SMB5_PIPA
+		chg->bms_psy = psy;
+#endif
 		if (ev == PSY_EVENT_PROP_CHANGED)
 			schedule_work(&chg->bms_update_work);
 	}
@@ -5843,6 +6063,14 @@ static void smblib_usb_plugin_locked(struct smb_charger *chg)
 	smblib_set_opt_switcher_freq(chg, vbus_rising ? chg->chg_freq.freq_5V :
 						chg->chg_freq.freq_removal);
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	if (!vbus_rising) {
+		chg->flag_second_ffc_term_current = false;
+		if (chg->support_ffc && smblib_get_fastcharge_mode(chg) > 0)
+			smblib_set_fastcharge_mode(chg, false);
+	}
+#endif
+
 	if (vbus_rising) {
 		cancel_delayed_work_sync(&chg->pr_swap_detach_work);
 		vote(chg->awake_votable, DETACH_DETECT_VOTER, false, 0);
@@ -7598,6 +7826,10 @@ static void bms_update_work(struct work_struct *work)
 						bms_update_work);
 	struct iio_channel **qg_list;
 	int rc;
+
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	smblib_pipa_update_second_ffc_termination(chg);
+#endif
 
 	if (IS_ERR(chg->iio_chan_list_qg))
 		return;

@@ -100,6 +100,14 @@ enum print_reason {
 #define ITERM_LIMITS_PM8150B_MA		10000
 #define ADC_CHG_ITERM_MASK		32767
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+#define NON_FFC_VFLOAT_VOTER		"NON_FFC_VFLOAT_VOTER"
+#define PIPA_BATT_WARM_THRESHOLD	450
+#define PIPA_BATT_COOL_THRESHOLD	150
+#define PIPA_SECOND_FFC_TERM_CURRENT_DIFF	98
+#define PIPA_SECOND_FFC_TERM_TEMP	350
+#endif
+
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
@@ -425,6 +433,9 @@ struct smb_charger {
 	struct power_supply		*dc_psy;
 	struct power_supply		*usb_port_psy;
 	struct power_supply		*wls_psy;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	struct power_supply		*bms_psy;
+#endif
 #ifdef CONFIG_FUDA_1665
 	struct power_supply		*wireless_psy;
 	s64				pen_bt_mac;
@@ -625,6 +636,16 @@ struct smb_charger {
 	/* battery profile */
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	int			non_fcc_batt_profile_fv_uv;
+	int			chg_term_current_thresh_hi_from_dts;
+	int			chg_warm_threshold;
+	int			chg_cool_threshold;
+	int			support_second_ffc_term_current_diff;
+	bool			support_ffc;
+	bool			support_second_ffc_term_current;
+	bool			flag_second_ffc_term_current;
+#endif
 
 	int			usb_icl_delta_ua;
 	int			pulse_cnt;
@@ -889,6 +910,12 @@ int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
+
+#ifdef CONFIG_QPNP_SMB5_PIPA
+int smblib_set_fastcharge_iterm(struct smb_charger *chg, int iterm);
+int smblib_set_fastcharge_mode(struct smb_charger *chg, bool enable);
+int smblib_get_fastcharge_mode(struct smb_charger *chg);
+#endif
 
 void smblib_moisture_detection_enable(struct smb_charger *chg, int pval);
 #endif /* __SMB5_CHARGER_H */

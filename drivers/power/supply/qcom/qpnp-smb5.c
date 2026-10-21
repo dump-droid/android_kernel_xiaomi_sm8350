@@ -240,6 +240,7 @@ struct smb_dt_props {
 	int			wd_snarl_time_cfg;
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
+	int			non_fcc_batt_profile_fv_uv;
 	int			term_current_src;
 	int			term_current_thresh_hi_ma;
 	int			term_current_thresh_lo_ma;
@@ -463,6 +464,29 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	chg->support_ffc = of_property_read_bool(node, "mi,support-ffc");
+	chg->support_second_ffc_term_current = of_property_read_bool(node,
+				"mi,support-second-ffc-term-current");
+	chg->support_second_ffc_term_current_diff =
+			PIPA_SECOND_FFC_TERM_CURRENT_DIFF;
+	if (of_property_read_u32(node,
+			"mi,support-second-ffc-term-current-diff",
+			&chg->support_second_ffc_term_current_diff))
+		dev_dbg(chg->dev, "using default second FFC termination current delta\n");
+
+	chg->chg_warm_threshold = PIPA_BATT_WARM_THRESHOLD;
+	rc = of_property_read_u32(node, "qcom,chg-warm-th",
+				&chg->chg_warm_threshold);
+	if (rc < 0)
+		chg->chg_warm_threshold = PIPA_BATT_WARM_THRESHOLD;
+
+	chg->chg_cool_threshold = PIPA_BATT_COOL_THRESHOLD;
+	rc = of_property_read_u32(node, "qcom,chg-cool-th",
+				&chg->chg_cool_threshold);
+	if (rc < 0)
+		chg->chg_cool_threshold = PIPA_BATT_COOL_THRESHOLD;
+#endif
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	chg->use_bq_pump = of_property_read_bool(node, "mi,use-bq-pump");
 #endif
@@ -720,6 +744,10 @@ static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 
 	rc = of_property_read_u32(node, "qcom,chg-term-current-ma",
 			&chip->dt.term_current_thresh_hi_ma);
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	chg->chg_term_current_thresh_hi_from_dts =
+		chip->dt.term_current_thresh_hi_ma;
+#endif
 
 	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
 	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
@@ -738,6 +766,13 @@ static int smb5_parse_dt_voltages(struct smb5 *chip, struct device_node *node)
 				"qcom,fv-max-uv", &chip->dt.batt_profile_fv_uv);
 	if (rc < 0)
 		chip->dt.batt_profile_fv_uv = -EINVAL;
+
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	rc = of_property_read_u32(node, "qcom,non-fcc-fv-max-uv",
+				&chip->dt.non_fcc_batt_profile_fv_uv);
+	if (rc < 0)
+		chip->dt.non_fcc_batt_profile_fv_uv = -EINVAL;
+#endif
 
 	rc = of_property_read_u32(node, "qcom,chg-inhibit-threshold-mv",
 				&chip->dt.chg_inhibit_thr_mv);
@@ -886,6 +921,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_FAKE_HVDCP3,
 #endif
 #ifdef CONFIG_QPNP_SMB5_PIPA
+	POWER_SUPPLY_PROP_FASTCHARGE_MODE,
 	POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP,
 #endif
 };
@@ -943,6 +979,13 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_HAS_DP:
 		val->intval = chg->has_dp;
 		break;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		rc = smblib_get_fastcharge_mode(chg);
+		if (rc >= 0)
+			val->intval = rc;
+		break;
+#endif
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		val->intval = chg->real_charger_type;
@@ -1013,6 +1056,12 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_HAS_DP:
 		chg->has_dp = !!val->intval;
 		break;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		rc = smblib_set_fastcharge_mode(chg, val->intval);
+		power_supply_changed(chg->usb_psy);
+		break;
+#endif
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_set_prop_typec_power_role(chg, val->intval);
@@ -1022,6 +1071,11 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
 		chg->pd_verifed = val->intval;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+		/* An authenticated adapter can use the FFC profile on pipa. */
+		rc = smblib_set_fastcharge_mode(chg, val->intval);
+		power_supply_changed(chg->usb_psy);
+#endif
 		break;
 	case POWER_SUPPLY_PROP_APDO_MAX:
 		chg->apdo_max = val->intval;
@@ -1053,6 +1107,9 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
 	case POWER_SUPPLY_PROP_APDO_MAX:
 	case POWER_SUPPLY_PROP_FAKE_HVDCP3:
+#endif
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
 #endif
 		return 1;
 	default:
@@ -2454,6 +2511,24 @@ static int smb5_init_hw(struct smb5 *chip)
 		smblib_get_charge_param(chg, &chg->param.fv,
 				&chg->batt_profile_fv_uv);
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	chg->non_fcc_batt_profile_fv_uv =
+		chip->dt.non_fcc_batt_profile_fv_uv;
+	if (chg->support_ffc && chg->non_fcc_batt_profile_fv_uv <= 0) {
+		dev_warn(chg->dev,
+			"non-FFC float voltage missing; using battery profile voltage\n");
+		if (chip->dt.batt_profile_fv_uv > 0) {
+			chg->non_fcc_batt_profile_fv_uv =
+				chip->dt.batt_profile_fv_uv;
+		} else {
+			rc = smblib_get_charge_param(chg, &chg->param.fv,
+					&chg->non_fcc_batt_profile_fv_uv);
+			if (rc < 0)
+				return rc;
+		}
+	}
+#endif
+
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
 	smblib_get_charge_param(chg, &chg->param.aicl_5v_threshold,
@@ -2545,6 +2620,13 @@ static int smb5_init_hw(struct smb5 *chip)
 	vote(chg->fv_votable,
 		BATT_PROFILE_VOTER, chg->batt_profile_fv_uv > 0,
 		chg->batt_profile_fv_uv);
+
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	/* Keep the lower float voltage active until FFC is explicitly enabled. */
+	if (chg->support_ffc)
+		vote(chg->fv_votable, NON_FFC_VFLOAT_VOTER, true,
+				chg->non_fcc_batt_profile_fv_uv);
+#endif
 
 	/* Some h/w limit maximum supported ICL */
 	vote(chg->usb_icl_votable, HW_LIMIT_VOTER,
