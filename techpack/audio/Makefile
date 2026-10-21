@@ -15,7 +15,9 @@ ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 include $(srctree)/techpack/audio/config/sm8150auto.conf
 export
 endif
-ifeq ($(CONFIG_ARCH_KONA), y)
+ifeq ($(CONFIG_ARCH_KONA_PIPA), y)
+	include $(srctree)/techpack/audio/config/pipaauto.conf
+else ifeq ($(CONFIG_ARCH_KONA), y)
 include $(srctree)/techpack/audio/config/konaauto.conf
 endif
 ifeq ($(CONFIG_ARCH_LAHAINA), y)
@@ -69,7 +71,10 @@ ifeq ($(CONFIG_ARCH_SDMSHRIKE), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sm8150autoconf.h
 endif
-ifeq ($(CONFIG_ARCH_KONA), y)
+ifeq ($(CONFIG_ARCH_KONA_PIPA), y)
+	LINUXINCLUDE    += \
+	                -include $(srctree)/techpack/audio/config/pipaautoconf.h
+else ifeq ($(CONFIG_ARCH_KONA), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/konaautoconf.h
 endif

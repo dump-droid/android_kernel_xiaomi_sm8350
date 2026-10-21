@@ -37,7 +37,7 @@ static int wsa883x_codec_info_create_codec_entry(
 	return 0;
 }
 
-static int wsa883x_codec_get_dev_num(struct snd_soc_component *component)
+static inline int wsa883x_codec_get_dev_num(struct snd_soc_component *component)
 {
 	return 0;
 }

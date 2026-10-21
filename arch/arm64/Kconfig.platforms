@@ -196,6 +196,12 @@ config ARCH_KONA
 	  KONA chipset. If you do not wish to build a kernel that
 	  runs on this chipset, say 'N' here.
 
+config ARCH_KONA_PIPA
+	bool "Enable Xiaomi Pad 6 (pipa) profile"
+	depends on ARCH_KONA
+	help
+	  Select pipa-specific built-in techpack settings for the Kona platform.
+
 config ARCH_LAHAINA
 	bool "Enable Support for Qualcomm Technologies, Inc. LAHAINA"
 	depends on ARCH_QCOM
