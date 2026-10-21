@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+&soc {
+	config_noc: interconnect@1500000 {
+		compatible = "qcom,sm8250-config-noc";
+		reg = <0x1500000 0xa580>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	gem_noc: interconnect@9100000 {
+		compatible = "qcom,sm8250-gem-noc";
+		reg = <0x9100000 0xb4000>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	mc_virt: interconnect@163d000 {
+		compatible = "qcom,sm8250-mc-virt";
+		reg = <0x163d000 0x1000>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,sm8250-mmss-noc";
+		reg = <0x1740000 0x1f080>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+};

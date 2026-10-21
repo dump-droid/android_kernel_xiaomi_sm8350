@@ -1,4 +1,5 @@
 #include <dt-bindings/msm/msm-camera.h>
+#include <dt-bindings/interconnect/qcom,sm8250.h>
 
 &soc {
 	qcom,cam-req-mgr {
@@ -575,7 +576,7 @@
 		camnoc-bus-width = <32>;
 		camnoc-axi-clk-bw-margin-perc = <20>;
 		interconnect-names = "cam_ahb";
-		interconnects =<&gem_noc MASTER_APPSS_PROC
+		interconnects = <&gem_noc MASTER_AMPSS_M0
 			&config_noc SLAVE_CAMERA_CFG>;
 		cam-ahb-num-cases = <8>;
 		cam-ahb-bw-KBps =
@@ -618,7 +619,7 @@
 						interconnect-names = "cam_hf_0";
 						interconnects =
 						<&mmss_noc MASTER_CAMNOC_HF
-						&mc_virt SLAVE_EBI1>;
+						&mc_virt SLAVE_EBI_CH0>;
 					};
 				};
 
@@ -631,7 +632,7 @@
 						interconnect-names = "cam_sf_0";
 						interconnects =
 						<&mmss_noc MASTER_CAMNOC_SF
-						&mc_virt SLAVE_EBI1>;
+						&mc_virt SLAVE_EBI_CH0>;
 					};
 				};
 
@@ -644,7 +645,7 @@
 						interconnect-names = "cam_sf_icp";
 						interconnects =
 						<&mmss_noc MASTER_CAMNOC_ICP
-						&mc_virt SLAVE_EBI1>;
+						&mc_virt SLAVE_EBI_CH0>;
 					};
 				};
 			};

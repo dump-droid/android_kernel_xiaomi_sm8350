@@ -1,4 +1,6 @@
 ifneq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_KONA) += kona.dtb
+
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi-overlay.dtbo \
 	lahaina-mtp-overlay.dtbo \
