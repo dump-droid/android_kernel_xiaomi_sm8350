@@ -724,7 +724,9 @@ int aw882xx_dev_status(struct aw_device *aw_dev)
 	return aw_dev->status;
 }
 
+#ifndef CONFIG_ARCH_KONA_PIPA
 int cnt = 0;
+#endif
 int aw882xx_dev_init_cali_re(struct aw_device *aw_dev)
 {
 	int ret = 0;
@@ -739,6 +741,7 @@ int aw882xx_dev_init_cali_re(struct aw_device *aw_dev)
 				cali_desc->cali_result = CALI_RESULT_NONE;
 				return 0;
 			} else {
+#ifndef CONFIG_ARCH_KONA_PIPA
 				cnt++;
 				switch (cnt) {
 					case 1:
@@ -768,6 +771,7 @@ int aw882xx_dev_init_cali_re(struct aw_device *aw_dev)
 					default:
 						break;
 				}
+#endif
 			}
 
 			if (cali_desc->cali_re < aw_dev->re_min ||
@@ -1125,30 +1129,53 @@ int aw882xx_dev_set_copp_module_en(bool enable)
 	return aw882xx_dsp_set_copp_module_en(enable);
 }
 
-static void aw_device_parse_sound_channel_dt(struct aw_device *aw_dev)
+static int aw_device_parse_sound_channel_dt(struct aw_device *aw_dev)
 {
 	int ret;
 	uint32_t channel_value;
+#ifdef CONFIG_ARCH_KONA_PIPA
+	struct aw_device *local_dev;
+#endif
 
 	aw_dev->channel = AW_DEV_CH_PRI_L;
 	ret = of_property_read_u32(aw_dev->dev->of_node, "sound-channel", &channel_value);
 	if (ret < 0) {
 		aw_dev_info(aw_dev->dev, "read sound-channel failed,use default");
-		return;
+		return 0;
 	}
 
 	aw_dev_dbg(aw_dev->dev, "read sound-channel value is : %d", channel_value);
 	if (channel_value >= AW_DEV_CH_MAX) {
 		channel_value = AW_DEV_CH_PRI_L;
 	}
+
+#ifdef CONFIG_ARCH_KONA_PIPA
+	mutex_lock(&g_dev_lock);
+	list_for_each_entry(local_dev, &g_dev_list, list_node) {
+		if (local_dev->channel == channel_value) {
+			aw_dev_err(aw_dev->dev,
+				   "sound-channel:%d already exists", channel_value);
+			mutex_unlock(&g_dev_lock);
+			return -EINVAL;
+		}
+	}
+	mutex_unlock(&g_dev_lock);
+#endif
+
 	aw_dev->channel = channel_value;
+	return 0;
 }
 
-static void aw_device_parse_dt(struct aw_device *aw_dev)
+static int aw_device_parse_dt(struct aw_device *aw_dev)
 {
-	aw_device_parse_sound_channel_dt(aw_dev);
+	int ret;
+
+	ret = aw_device_parse_sound_channel_dt(aw_dev);
+	if (ret)
+		return ret;
 	aw882xx_device_parse_topo_id_dt(aw_dev);
 	aw882xx_device_parse_port_id_dt(aw_dev);
+	return 0;
 }
 
 int aw882xx_dev_get_list_head(struct list_head **head)
@@ -1166,7 +1193,9 @@ int aw882xx_device_probe(struct aw_device *aw_dev)
 	int ret;
 	INIT_LIST_HEAD(&aw_dev->list_node);
 
-	aw_device_parse_dt(aw_dev);
+	ret = aw_device_parse_dt(aw_dev);
+	if (ret)
+		return ret;
 	ret = aw882xx_cali_init(&aw_dev->cali_desc);
 	if (ret)
 		return ret;

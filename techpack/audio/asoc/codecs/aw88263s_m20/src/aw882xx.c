@@ -38,7 +38,11 @@
 #include "aw882xx_bin_parse.h"
 #include "aw882xx_spin.h"
 
+#ifdef CONFIG_ARCH_KONA_PIPA
+#define AW882XX_DRIVER_VERSION "v1.13.0"
+#else
 #define AW882XX_DRIVER_VERSION "v1.12.0"
+#endif
 #define AW882XX_I2C_NAME "aw882xx_smartpa"
 
 #define AW_READ_CHIPID_RETRIES		5	/* 5 times */
@@ -516,8 +520,14 @@ static int aw882xx_profile_set(struct snd_kcontrol *kcontrol,
 	mutex_lock(&aw882xx->lock);
 	aw882xx_dev_set_profile_index(aw882xx->aw_pa, ucontrol->value.integer.value[0]);
 	/*pstream = 0 no pcm just set status*/
-	if (aw882xx->pstream && aw882xx->allow_pw)
+	if (aw882xx->pstream && aw882xx->allow_pw) {
+#ifdef CONFIG_ARCH_KONA_PIPA
+		aw882xx_device_stop(aw882xx->aw_pa);
+		aw882xx_start_pa(aw882xx);
+#else
 		aw882xx_dev_prof_update(aw882xx->aw_pa, aw882xx->phase_sync);
+#endif
+	}
 	mutex_unlock(&aw882xx->lock);
 	aw_dev_info(codec->dev, "prof id %d", (int)ucontrol->value.integer.value[0]);
 	return 0;
@@ -898,7 +908,7 @@ static void aw882xx_dc_prot_work(struct work_struct *work)
 	}
 }
 
-#if 0
+#ifdef CONFIG_ARCH_KONA_PIPA
 static void aw882xx_irq_restart(struct aw882xx *aw882xx)
 {
 	int ret;
@@ -1513,7 +1523,9 @@ static int aw882xx_codec_probe(aw_snd_soc_codec_t *aw_codec)
 	}
 
 	INIT_DELAYED_WORK(&aw882xx->start_work, aw882xx_startup_work);
-	//INIT_DELAYED_WORK(&aw882xx->interrupt_work, aw882xx_interrupt_work);
+#ifdef CONFIG_ARCH_KONA_PIPA
+	INIT_DELAYED_WORK(&aw882xx->interrupt_work, aw882xx_interrupt_work);
+#endif
 	INIT_DELAYED_WORK(&aw882xx->dc_work, aw882xx_dc_prot_work);
 	INIT_DELAYED_WORK(&aw882xx->fw_work, aw882xx_request_firmware);
 
@@ -1886,7 +1898,7 @@ static int aw882xx_read_chipid(struct aw882xx *aw882xx)
 
 	return -EINVAL;
 }
-#if 0
+#ifdef CONFIG_ARCH_KONA_PIPA
 static irqreturn_t aw882xx_irq(int irq, void *data)
 {
 	struct aw882xx *aw882xx = (struct aw882xx *)data;
@@ -2440,15 +2452,22 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c,
 	if (ret)
 		return ret;
 
-	/*aw882xx irq*/
-	//aw882xx_interrupt_init(aw882xx);
-
 	/*codec register*/
 	ret = aw_componet_codec_register(aw882xx);
 	if (ret) {
 		aw_dev_err(&i2c->dev, "codec register failde");
 		return ret;
 	}
+
+	/* Initialize IRQ after codec_probe has created the workqueue. */
+#ifdef CONFIG_ARCH_KONA_PIPA
+	ret = aw882xx_interrupt_init(aw882xx);
+	if (ret) {
+		aw_dev_err(&i2c->dev, "interrupt init failed: %d", ret);
+		aw_componet_codec_ops.unregister_codec(&i2c->dev);
+		return ret;
+	}
+#endif
 
 	/*create attr*/
 	ret = sysfs_create_group(&i2c->dev.kobj, &aw882xx_attribute_group);

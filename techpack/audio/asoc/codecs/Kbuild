@@ -295,6 +295,10 @@ ifneq (,$(filter $(TARGET_PRODUCT), taoyao))
 	obj-y	+= tfa9874/
 endif
 
+ifeq ($(CONFIG_ARCH_KONA_PIPA), y)
+	obj-y	+= aw88263s_m20/
+endif
+
 ifneq (,$(filter $(TARGET_PRODUCT), mona zijin))
 	obj-y	+= aw88263s/
 endif

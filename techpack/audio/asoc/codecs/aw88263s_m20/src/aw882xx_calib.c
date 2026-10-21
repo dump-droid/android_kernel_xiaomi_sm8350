@@ -55,9 +55,10 @@ static DEFINE_MUTEX(g_cali_lock);
 
 #ifdef AW_CALI_STORE_EXAMPLE
  /*write cali to persist file example*/
-#ifdef CONFIG_FACTORY_BUILD
+#if defined(CONFIG_FACTORY_BUILD) || defined(CONFIG_ARCH_KONA_PIPA)
 #define AWINIC_CALI_FILE  "/mnt/vendor/persist/audio/aw_cali.bin"
-#else
+#endif
+#ifndef CONFIG_FACTORY_BUILD
 #define AWINIC_CALI_FILE_WRITE  "/data/vendor/cit/aw_cali.bin"
 #define AWINIC_CALI_FILE_READ  "/mnt/vendor/persist/audio/aw_cali.bin"
 #endif
@@ -88,7 +89,7 @@ static int aw_cali_write_cali_re_to_file(int32_t cali_re, int channel)
 	char buf[50] = {0};
 	loff_t pos = 0;
 	mm_segment_t fs;
-#ifdef CONFIG_FACTORY_BUILD
+#if defined(CONFIG_FACTORY_BUILD) || defined(CONFIG_ARCH_KONA_PIPA)
 	fp = filp_open(AWINIC_CALI_FILE, O_RDWR | O_CREAT, 0644);
 	if (IS_ERR(fp)) {
 		pr_err("%s:channel:%d open %s failed!\n",
@@ -130,6 +131,11 @@ static int aw_cali_get_read_cali_re(int32_t *cali_re, int channel)
 	int32_t int_cali_re = 0;
 	loff_t pos = 0;
 	mm_segment_t fs;
+
+	if (!cali_re) {
+		pr_err("%s: cali_re is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 #ifdef CONFIG_FACTORY_BUILD
 	fp = filp_open(AWINIC_CALI_FILE, O_RDONLY, 0);
@@ -335,10 +341,10 @@ int aw882xx_cali_svc_get_cali_status(void)
 static int aw_cali_svc_dev_get_re(struct aw_device *aw_dev)
 {
 	int ret, i;
-	int32_t re[AW_CALI_READ_TIMES];
+	int32_t re[AW_CALI_READ_RE_TIMES] = {0};
 	int32_t sum = 0;
 
-	for (i = 0; i < AW_CALI_READ_TIMES; i++) {
+	for (i = 0; i < AW_CALI_READ_RE_TIMES; i++) {
 		ret = aw882xx_dsp_read_r0(aw_dev, &re[i]);
 		if (ret) {
 			aw_dev_err(aw_dev->dev, "get re failed!");
@@ -346,12 +352,16 @@ static int aw_cali_svc_dev_get_re(struct aw_device *aw_dev)
 				aw_dev->cali_desc.cali_result = CALI_RESULT_ERROR;
 				aw_cali_svc_run_mute(aw_dev, aw_dev->cali_desc.cali_result);
 			}
-			return ret;;
+			return ret;
 		}
 		sum += re[i];
+#ifdef CONFIG_ARCH_KONA_PIPA
+		usleep_range(AW_32000_US, AW_32000_US + 10);
+#else
 		usleep_range(AW_10000_US, AW_10000_US + 10);
+#endif
 	}
-	re[0] = sum / AW_CALI_READ_TIMES;
+	re[0] = sum / AW_CALI_READ_RE_TIMES;
 
 	aw_dev->cali_desc.cali_re = re[0];
 
@@ -362,10 +372,10 @@ static int aw_cali_svc_dev_get_re(struct aw_device *aw_dev)
 static int aw_cali_svc_dev_get_f0(struct aw_device *aw_dev)
 {
 	int ret, i;
-	int32_t f0[AW_CALI_READ_TIMES];
+	int32_t f0[AW_CALI_READ_F0_Q_TIMES] = {0};
 	int32_t sum = 0;
 
-	for (i = 0; i < AW_CALI_READ_TIMES; i++) {
+	for (i = 0; i < AW_CALI_READ_F0_Q_TIMES; i++) {
 		ret = aw882xx_dsp_read_f0(aw_dev, &f0[i]);
 		if (ret) {
 			aw_dev_err(aw_dev->dev, "get f0 failed!");
@@ -374,7 +384,7 @@ static int aw_cali_svc_dev_get_f0(struct aw_device *aw_dev)
 		sum += f0[i];
 		usleep_range(AW_10000_US, AW_10000_US + 10);
 	}
-	f0[0] = sum / AW_CALI_READ_TIMES;
+	f0[0] = sum / AW_CALI_READ_F0_Q_TIMES;
 
 	aw_dev->cali_desc.cali_f0 = f0[0];
 	return 0;
@@ -383,10 +393,11 @@ static int aw_cali_svc_dev_get_f0(struct aw_device *aw_dev)
 static int aw_cali_svc_dev_get_f0_q(struct aw_device *aw_dev)
 {
 	int ret, i;
-	int32_t f0[AW_CALI_READ_TIMES], q[AW_CALI_READ_TIMES];
+	int32_t f0[AW_CALI_READ_F0_Q_TIMES] = {0};
+	int32_t q[AW_CALI_READ_F0_Q_TIMES] = {0};
 	int32_t sum_f0 = 0, sum_q = 0;
 
-	for (i = 0; i < AW_CALI_READ_TIMES; i++) {
+	for (i = 0; i < AW_CALI_READ_F0_Q_TIMES; i++) {
 		ret = aw882xx_dsp_read_f0_q(aw_dev, &f0[i], &q[i]);
 		if (ret) {
 			aw_dev_err(aw_dev->dev, "get f0 failed!");
@@ -396,8 +407,8 @@ static int aw_cali_svc_dev_get_f0_q(struct aw_device *aw_dev)
 		sum_q += q[i];
 		usleep_range(AW_10000_US, AW_10000_US + 10);
 	}
-	f0[0] = sum_f0 / AW_CALI_READ_TIMES;
-	q[0] = sum_q / AW_CALI_READ_TIMES;
+	f0[0] = sum_f0 / AW_CALI_READ_F0_Q_TIMES;
+	q[0] = sum_q / AW_CALI_READ_F0_Q_TIMES;
 	aw_dev->cali_desc.cali_f0 = f0[0];
 	aw_dev->cali_desc.cali_q = q[0];
 	aw_dev_dbg(aw_dev->dev, "cali f0 is %d, q is %d",
@@ -409,6 +420,7 @@ static int aw_cali_svc_dev_get_f0_q(struct aw_device *aw_dev)
 static int aw_cali_svc_dev_cali_mode_en(struct aw_device *aw_dev, int type, bool is_enable, unsigned int flag)
 {
 	int ret;
+	int32_t cali_msg_data = is_enable;
 
 	/* open cali mode */
 	if (is_enable) {
@@ -428,11 +440,15 @@ static int aw_cali_svc_dev_cali_mode_en(struct aw_device *aw_dev, int type, bool
 			}
 		}
 
-		ret = aw882xx_dsp_cali_en(aw_dev, true);
+#ifdef CONFIG_ARCH_KONA_PIPA
+		cali_msg_data = (type == CALI_TYPE_RE) ?
+			MSG_CALI_RE_ENABLE_DATA : MSG_CALI_F0_ENABLE_DATA;
+#endif
+		ret = aw882xx_dsp_cali_en(aw_dev, cali_msg_data);
 		if (ret < 0)
 			return ret;
 	} else {
-		aw882xx_dsp_cali_en(aw_dev, false);
+		aw882xx_dsp_cali_en(aw_dev, MSG_CALI_DISABLE_DATA);
 
 		if (type == CALI_TYPE_RE) {
 			/*close mute*/
