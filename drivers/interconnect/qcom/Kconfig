@@ -97,6 +97,17 @@ config INTERCONNECT_QCOM_SM8150
 	  aggreagates the cosumer bandwidth requests to satisfy constraints
 	  placed on Network-on-Chip performance states.
 
+config INTERCONNECT_QCOM_SM8250
+	tristate "SM8250 interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
+	help
+	  Support for Qualcomm SM8250 interconnect fabrics, including the
+	  dedicated modem PCIe path used by Kona platforms.
+
 config INTERCONNECT_QCOM_LAHAINA
 	tristate "LAHAINA interconnect driver"
 	depends on INTERCONNECT_QCOM
