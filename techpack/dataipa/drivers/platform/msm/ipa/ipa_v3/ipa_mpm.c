@@ -536,7 +536,7 @@ static int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 	ep_cfg.mode.dst = dst_pipe;
 	ep_cfg.seq.set_dynamic = true;
 
-	result = ipa_cfg_ep(ipa_get_ep_mapping(src_pipe), &ep_cfg);
+	result = ipa3_cfg_ep(ipa3_get_ep_mapping(src_pipe), &ep_cfg);
 	IPA_MPM_FUNC_EXIT();
 
 destroy_imm_cmd:
@@ -881,7 +881,7 @@ static void get_ipa3_client(int id,
 static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	int mhi_idx, struct ipa_req_chan_out_params *out_params)
 {
-	int ipa_ep_idx;
+	int ipa_ep_idx = IPA_EP_NOT_ALLOCATED;
 	int res;
 	struct mhi_p_desc *er_ring_va, *tr_ring_va;
 	void *buff_va;
@@ -1649,7 +1649,7 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 	int probe_id,
 	enum ipa_mpm_start_stop_type start_stop)
 {
-	int ipa_ep_idx;
+	int ipa_ep_idx = IPA_EP_NOT_ALLOCATED;
 	struct ipa3_ep_context *ep;
 	bool is_start;
 	enum ipa_client_type ul_chan, dl_chan;
@@ -2691,6 +2691,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 	case MHI_CB_PENDING_DATA:
 	case MHI_CB_SYS_ERROR:
 	case MHI_CB_FATAL_ERROR:
+	case MHI_CB_FW_FALLBACK_IMG:
 	case MHI_CB_EE_MISSION_MODE:
 	case MHI_CB_DTR_SIGNAL:
 		IPA_MPM_ERR("unexpected event %d\n", mhi_cb);
@@ -2813,9 +2814,8 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		return -EINVAL;
 	}
 
-	if (mhip_client != IPA_MPM_MHIP_USB_DPL)
-		/* Start UL MHIP channel for offloading teth connection */
-		status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
+	/* Start UL MHIP channel for offloading tethering traffic. */
+	status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
 							probe_id,
 							MPM_MHIP_START);
 	switch (status) {

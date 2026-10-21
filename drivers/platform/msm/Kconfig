@@ -96,6 +96,13 @@ config IPA_WDI_UNIFIED_API
 	  The IPA WDI unified API supports all WDI versions through a unified
 	  interface.
 
+config IPA3_MHI_PRIME_MANAGER
+	tristate "IPA3 MHI Prime Manager driver"
+	depends on IPA3
+	help
+	  This driver sets up MHI Prime channels between the host and modem
+	  for tethering data offload.
+
 config VETH_IPA
         tristate "VETH_IPA Network Interface Driver Support"
         depends on MSM_HAB
