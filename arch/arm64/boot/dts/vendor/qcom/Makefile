@@ -30,6 +30,8 @@ dtbo-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi-overlay.dtbo \
 	lahaina-mtp-hsp-pro-overlay.dtbo \
 	lahaina-cdp-hsp-pro-overlay.dtbo \
 	lahaina-qrd-hsp-pro-overlay.dtbo
+dtbo-$(CONFIG_ARCH_KONA_PIPA) += pipa-sm8250-overlay.dtbo
+pipa-sm8250-overlay.dtbo-base := kona.dtb
 
 lahaina-rumi-overlay.dtbo-base := lahaina.dtb
 lahaina-mtp-hsp-overlay.dtbo-base := lahaina.dtb
