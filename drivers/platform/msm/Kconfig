@@ -103,6 +103,13 @@ config IPA3_MHI_PRIME_MANAGER
 	  This driver sets up MHI Prime channels between the host and modem
 	  for tethering data offload.
 
+config RMNET_CTL
+	tristate "RmNet Control MHI driver"
+	depends on MHI_BUS
+	help
+	  Enable the MHI client used to exchange RMNET QMAP control messages
+	  with the modem.
+
 config VETH_IPA
         tristate "VETH_IPA Network Interface Driver Support"
         depends on MSM_HAB
