@@ -103,6 +103,12 @@ config IPA3_MHI_PRIME_MANAGER
 	  This driver sets up MHI Prime channels between the host and modem
 	  for tethering data offload.
 
+config IPA_UT
+	tristate "IPA Unit-Test Framework and Test Suites"
+	depends on IPA3 && DEBUG_FS
+	help
+	  This framework provides in-kernel IPA unit tests through debugfs.
+
 source "techpack/datarmnet/core/Kconfig"
 
 config VETH_IPA
