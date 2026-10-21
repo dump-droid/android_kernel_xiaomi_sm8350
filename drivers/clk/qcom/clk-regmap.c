@@ -273,6 +273,11 @@ int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 	int ret;
 
 	rclk->dev = dev;
+	if (rclk->hw.init->vdd_class) {
+		rclk->vdd_data.vdd_class = rclk->hw.init->vdd_class;
+		rclk->vdd_data.num_rate_max = rclk->hw.init->num_rate_max;
+		rclk->vdd_data.rate_max = rclk->hw.init->rate_max;
+	}
 
 	if (dev && dev_get_regmap(dev, NULL))
 		rclk->regmap = dev_get_regmap(dev, NULL);

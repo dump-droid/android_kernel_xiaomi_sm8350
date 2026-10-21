@@ -284,6 +284,8 @@ struct clk_parent_data {
 	int			index;
 };
 
+struct clk_vdd_class;
+
 /**
  * struct clk_init_data - holds init data that's common to all clocks and is
  * shared between the clock provider and the common clock framework.
@@ -307,6 +309,10 @@ struct clk_init_data {
 	const struct clk_hw		**parent_hws;
 	u8			num_parents;
 	unsigned long		flags;
+	/* Qualcomm clock voltage-scaling metadata. */
+	struct clk_vdd_class	*vdd_class;
+	unsigned int		num_rate_max;
+	unsigned long		*rate_max;
 };
 
 /**
