@@ -450,6 +450,16 @@ config MSM_VIDEOCC_LAHAINA
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config MSM_VIDEOCC_KONA
+	bool "KONA Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select MSM_GCC_KONA
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  KONA devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 config MSM_DISPCC_LAHAINA
 	tristate "LAHAINA Display Clock Controller"
 	select MSM_GCC_LAHAINA
