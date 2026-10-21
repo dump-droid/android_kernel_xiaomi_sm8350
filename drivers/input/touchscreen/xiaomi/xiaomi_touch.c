@@ -1,5 +1,9 @@
 #include "xiaomi_touch.h"
 
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+#include <linux/kobject.h>
+#endif
+
 static struct xiaomi_touch_pdata *touch_pdata;
 static struct xiaomi_touch *xiaomi_touch_device;
 
@@ -197,6 +201,9 @@ static struct xiaomi_touch xiaomi_touch_dev = {
 	.prox_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.prox_mutex),
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER(xiaomi_touch_dev.wait_queue),
 	.fod_press_status_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.fod_press_status_mutex),
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	.pen_connect_strategy_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.pen_connect_strategy_mutex),
+#endif
 };
 
 struct xiaomi_touch *xiaomi_touch_dev_get(int minor)
@@ -221,13 +228,18 @@ EXPORT_SYMBOL_GPL(get_xiaomi_touch_dev);
 
 int xiaomitouch_register_modedata(int touchId, struct xiaomi_touch_interface *data)
 {
-	int ret = 0;
 	struct xiaomi_touch_interface *touch_data = NULL;
 
+	if (!data)
+		return -EINVAL;
 	if (!touch_pdata)
-		ret = -ENOMEM;
+		return -EPROBE_DEFER;
+	if (touchId < 0 || touchId >= ARRAY_SIZE(touch_pdata->touch_data))
+		return -EINVAL;
 
 	touch_data = touch_pdata->touch_data[touchId];
+	if (!touch_data)
+		return -ENODEV;
 	pr_info("%s\n", __func__);
 
 	mutex_lock(&xiaomi_touch_dev.mutex);
@@ -275,9 +287,38 @@ int xiaomitouch_register_modedata(int touchId, struct xiaomi_touch_interface *da
 
 	mutex_unlock(&xiaomi_touch_dev.mutex);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(xiaomitouch_register_modedata);
+
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+int update_pen_connect_strategy_value(bool pen_active)
+{
+	char *envp[] = { "SOURCE=sysfs", NULL };
+
+	mutex_lock(&xiaomi_touch_dev.pen_connect_strategy_mutex);
+	if (!touch_pdata || !xiaomi_touch_dev.dev) {
+		mutex_unlock(&xiaomi_touch_dev.pen_connect_strategy_mutex);
+		return -ENODEV;
+	}
+
+	touch_pdata->pen_active = pen_active;
+	kobject_uevent_env(&xiaomi_touch_dev.dev->kobj, KOBJ_CHANGE, envp);
+	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+		     "pen_connect_strategy");
+	mutex_unlock(&xiaomi_touch_dev.pen_connect_strategy_mutex);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(update_pen_connect_strategy_value);
+
+static ssize_t pen_connect_strategy_show(struct device *dev,
+					 struct device_attribute *attr, char *buf)
+{
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->pen_active);
+}
+#endif
 
 int update_palm_sensor_value(int value)
 {
@@ -1034,6 +1075,11 @@ static DEVICE_ATTR(update_rawdata, (S_IRUGO | S_IWUSR | S_IWGRP), update_rawdata
 
 static DEVICE_ATTR(fod_press_status, (0664), fod_press_status_show, NULL);
 
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+static DEVICE_ATTR(pen_connect_strategy, S_IRUGO,
+		   pen_connect_strategy_show, NULL);
+#endif
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
@@ -1059,6 +1105,9 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_update_rawdata.attr,
 	&dev_attr_suspend_state.attr,
 	&dev_attr_fod_press_status.attr,
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	&dev_attr_pen_connect_strategy.attr,
+#endif
 	NULL,
 };
 

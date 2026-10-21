@@ -74,7 +74,12 @@ enum MODE_TYPE {
 	Touch_Nonui_Mode       		= 17,
 	Touch_Debug_Level      		= 18,
 	Touch_Power_Status     		= 19,
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	Touch_Pen_ENABLE       		= 20,
+	Touch_Mode_NUM         		= 21,
+#else
 	Touch_Mode_NUM         		= 20,
+#endif
 	THP_LOCK_SCAN_MODE      	= THP_CMD_BASE + 0,
 	THP_FOD_DOWNUP_CTL      	= THP_CMD_BASE + 1,
 	THP_SELF_CAP_SCAN         	= THP_CMD_BASE + 2,
@@ -131,6 +136,9 @@ struct xiaomi_touch {
 	struct mutex  palm_mutex;
 	struct mutex  prox_mutex;
 	struct mutex fod_press_status_mutex;
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	struct mutex pen_connect_strategy_mutex;
+#endif
 	wait_queue_head_t 	wait_queue;
 };
 
@@ -172,6 +180,9 @@ struct xiaomi_touch_pdata{
 	int fod_press_status_value;
 	struct proc_dir_entry  *last_touch_events_proc;
 	struct last_touch_event *last_touch_events;
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	bool pen_active;
+#endif
 };
 
 struct xiaomi_touch *xiaomi_touch_dev_get(int minor);
@@ -195,6 +206,10 @@ extern int update_clicktouch_raw(void);
 extern void last_touch_events_collect(int slot, int state);
 
 extern int update_fod_press_status(int value);
+
+#ifdef CONFIG_TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+extern int update_pen_connect_strategy_value(bool pen_active);
+#endif
 
 int xiaomi_touch_set_suspend_state(int state);
 

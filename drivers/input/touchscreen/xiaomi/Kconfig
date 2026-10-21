@@ -7,3 +7,9 @@ config TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 	  If unsure, say N.
 
 	  To compile this driver as a module, choose M here:
+
+config TOUCHSCREEN_NEW_PEN_CONNECT_STRATEGY
+	bool "New pen connect strategy"
+	depends on TOUCHSCREEN_XIAOMI_TOUCHFEATURE
+	help
+	  Expose the touch controller's active pen state to userspace.
