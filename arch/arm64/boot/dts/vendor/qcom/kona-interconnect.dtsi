@@ -8,6 +8,34 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
+	system_noc: interconnect@1620000 {
+		compatible = "qcom,sm8250-system-noc";
+		reg = <0x1620000 0x1c200>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,sm8250-aggre1-noc";
+		reg = <0x16e0000 0x1f180>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,sm8250-aggre2-noc";
+		reg = <0x1700000 0x33000>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	compute_noc: interconnect@1733000 {
+		compatible = "qcom,sm8250-compute-noc";
+		reg = <0x1733000 0xa180>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
 	gem_noc: interconnect@9100000 {
 		compatible = "qcom,sm8250-gem-noc";
 		reg = <0x9100000 0xb4000>;
@@ -25,6 +53,27 @@
 	mmss_noc: interconnect@1740000 {
 		compatible = "qcom,sm8250-mmss-noc";
 		reg = <0x1740000 0x1f080>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	dc_noc: interconnect@90c0000 {
+		compatible = "qcom,sm8250-dc-noc";
+		reg = <0x90c0000 0x4200>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	npu_noc: interconnect@9990000 {
+		compatible = "qcom,sm8250-npu-noc";
+		reg = <0x9990000 0x1600>;
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	ipa_virt: interconnect@1e00000 {
+		compatible = "qcom,sm8250-ipa-virt";
+		reg = <0x1e00000 0x1000>;
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
