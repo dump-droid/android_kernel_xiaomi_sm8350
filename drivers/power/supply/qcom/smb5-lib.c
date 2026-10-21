@@ -5,6 +5,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/init.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
@@ -51,6 +52,19 @@
 
 static void update_sw_icl_max(struct smb_charger *chg, int val);
 static int smblib_get_prop_typec_mode(struct smb_charger *chg);
+
+#ifdef CONFIG_QPNP_SMB5_PIPA
+bool off_charge_flag;
+
+static int __init early_parse_off_charge_flag(char *p)
+{
+	if (p && !strcmp(p, "charger"))
+		off_charge_flag = true;
+
+	return 0;
+}
+early_param("androidboot.mode", early_parse_off_charge_flag);
+#endif
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
 {

@@ -18,6 +18,13 @@ config QPNP_QG
 	  To compile this driver as a module, choose M here: the
 	  module will be called qcom-qpnp-qg.
 
+config QPNP_FG_GEN4_PIPA
+	bool "Xiaomi Pipa QPNP Gen4 fuel gauge"
+	depends on MFD_SPMI_PMIC && QPNP_SMB5 && IIO
+	help
+	  Enable the Pipa-specific QPNP Gen4 fuel gauge, including its two
+	  battery authentication interfaces and learned battery profiles.
+
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
 	depends on MFD_SPMI_PMIC && IIO && TYPEC

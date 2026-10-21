@@ -53,6 +53,16 @@ struct power_supply_attr {
 	}
 #endif
 
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+#define POWER_SUPPLY_FG_ATTR(_prop, _name)		\
+	[POWER_SUPPLY_PROP_ ## _prop] = {		\
+		.prop_name = #_prop,			\
+		.attr_name = #_name,			\
+		.text_values = NULL,			\
+		.text_values_len = 0,			\
+	}
+#endif
+
 static const char * const POWER_SUPPLY_TYPE_TEXT[] = {
 	[POWER_SUPPLY_TYPE_UNKNOWN]		= "Unknown",
 	[POWER_SUPPLY_TYPE_BATTERY]		= "Battery",
@@ -69,6 +79,9 @@ static const char * const POWER_SUPPLY_TYPE_TEXT[] = {
 	[POWER_SUPPLY_TYPE_WIRELESS]		= "Wireless",
 #ifdef CONFIG_BATT_VERIFY_BY_DS28E16_PIPA
 	[POWER_SUPPLY_TYPE_BATT_VERIFY]		= "Batt_Verify",
+#endif
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+	[POWER_SUPPLY_TYPE_BMS]			= "BMS",
 #endif
 };
 
@@ -250,6 +263,42 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_PIPA_ATTR(CHIP_OK, chip_ok),
 	POWER_SUPPLY_PIPA_ATTR(MAXIM_BATT_CYCLE_COUNT, maxim_batt_cycle_count),
 #endif
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+	POWER_SUPPLY_FG_ATTR(REAL_CAPACITY, real_capacity),
+	POWER_SUPPLY_FG_ATTR(SHUTDOWN_DELAY, shutdown_delay),
+	POWER_SUPPLY_FG_ATTR(SHUTDOWN_DELAY_ENABLE, shutdown_delay_en),
+	POWER_SUPPLY_FG_ATTR(CAPACITY_RAW, capacity_raw),
+	POWER_SUPPLY_FG_ATTR(SOC_DECIMAL, soc_decimal),
+	POWER_SUPPLY_FG_ATTR(SOC_DECIMAL_RATE, soc_decimal_rate),
+	POWER_SUPPLY_FG_ATTR(CC_SOC, cc_soc),
+	POWER_SUPPLY_FG_ATTR(RESISTANCE_ID, resistance_id),
+	POWER_SUPPLY_FG_ATTR(RESISTANCE, resistance),
+	POWER_SUPPLY_FG_ATTR(ESR_ACTUAL, esr_actual),
+	POWER_SUPPLY_FG_ATTR(ESR_NOMINAL, esr_nominal),
+	POWER_SUPPLY_FG_ATTR(BATTERY_TYPE, battery_type),
+	POWER_SUPPLY_FG_ATTR(CHARGE_NOW_RAW, charge_now_raw),
+	POWER_SUPPLY_FG_ATTR(CHARGE_COUNTER_SHADOW, charge_counter_shadow),
+	POWER_SUPPLY_FG_ATTR(CYCLE_COUNTS, cycle_counts),
+	POWER_SUPPLY_FG_ATTR(SOC_REPORTING_READY, soc_reporting_ready),
+	POWER_SUPPLY_FG_ATTR(CLEAR_SOH, clear_soh),
+	POWER_SUPPLY_FG_ATTR(SOH, soh),
+	POWER_SUPPLY_FG_ATTR(DEBUG_BATTERY, debug_battery),
+	POWER_SUPPLY_FG_ATTR(CHARGE_DONE, charge_done),
+	POWER_SUPPLY_FG_ATTR(CHARGING_ENABLED, charging_enabled),
+	POWER_SUPPLY_FG_ATTR(CC_STEP, cc_step),
+	POWER_SUPPLY_FG_ATTR(CC_STEP_SEL, cc_step_sel),
+	POWER_SUPPLY_FG_ATTR(BATT_AGE_LEVEL, batt_age_level),
+	POWER_SUPPLY_FG_ATTR(SCALE_MODE_EN, scale_mode_en),
+	POWER_SUPPLY_FG_ATTR(FASTCHARGE_MODE, fastcharge_mode),
+	POWER_SUPPLY_FG_ATTR(FFC_TERMINATION_CURRENT, ffc_termination_current),
+	POWER_SUPPLY_FG_ATTR(SYS_TERMINATION_CURRENT, sys_termination_current),
+	POWER_SUPPLY_FG_ATTR(FFC_SYS_TERMINATION_CURRENT,
+						ffc_sys_termination_current),
+	POWER_SUPPLY_FG_ATTR(VBATT_FULL_VOL, vbatt_full_vol),
+	POWER_SUPPLY_FG_ATTR(FFC_VBATT_FULL_VOL, ffc_vbatt_full_vol),
+	POWER_SUPPLY_FG_ATTR(KI_COEFF_CURRENT, ki_coeff_current),
+	POWER_SUPPLY_FG_ATTR(RECHARGE_SOC, recharge_soc),
+#endif
 };
 
 static struct attribute *
@@ -358,6 +407,10 @@ static ssize_t power_supply_show_property(struct device *dev,
 			value.arrayval[15]);
 		break;
 	case POWER_SUPPLY_PROP_VERIFY_MODEL_NAME:
+#endif
+#ifdef CONFIG_QPNP_FG_GEN4_PIPA
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
 #endif
 	case POWER_SUPPLY_PROP_MODEL_NAME ... POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = sprintf(buf, "%s\n", value.strval);

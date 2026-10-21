@@ -183,7 +183,7 @@ static bool is_input_present(struct step_chg_info *chip)
 	return false;
 }
 
-static int read_range_data_from_node(struct device_node *node,
+int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
 		int max_threshold, u32 max_value)
 {

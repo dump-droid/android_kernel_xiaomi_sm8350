@@ -851,7 +851,8 @@ int soh_profile_update(struct soh_profile *sp, int new_soh)
 {
 	int rc, batt_age_level = 0;
 
-	if (!sp || !sp->bms_psy || !sp->iio_chan_list)
+	if (!sp || !sp->bms_psy ||
+		(!sp->iio_chan_list && !IS_ENABLED(CONFIG_QPNP_FG_GEN4_PIPA)))
 		return -ENODEV;
 
 	if (new_soh <= 0)
@@ -869,8 +870,21 @@ int soh_profile_update(struct soh_profile *sp, int new_soh)
 		return rc;
 
 	if (batt_age_level != sp->last_batt_age_level) {
-		rc = write_int_iio_chan(sp->iio_chan_list,
-				PSY_IIO_BATT_AGE_LEVEL, batt_age_level);
+		if (sp->iio_chan_list) {
+			rc = write_int_iio_chan(sp->iio_chan_list,
+					PSY_IIO_BATT_AGE_LEVEL, batt_age_level);
+		} else {
+#if IS_ENABLED(CONFIG_QPNP_FG_GEN4_PIPA)
+			union power_supply_propval pval = {
+				.intval = batt_age_level,
+			};
+
+			rc = power_supply_set_property(sp->bms_psy,
+				POWER_SUPPLY_PROP_BATT_AGE_LEVEL, &pval);
+#else
+			rc = -ENODEV;
+#endif
+		}
 		if (rc < 0) {
 			pr_err("Couldn't set batt_age_level rc=%d\n", rc);
 			return rc;
@@ -900,7 +914,7 @@ int soh_profile_init(struct device *dev, struct soh_profile *sp)
 	int rc, profile_count = 0;
 
 	if (!dev || !sp || !sp->bp_node || !sp->bms_psy ||
-		!sp->iio_chan_list)
+		(!sp->iio_chan_list && !IS_ENABLED(CONFIG_QPNP_FG_GEN4_PIPA)))
 		return -ENODEV;
 
 	rc = of_batterydata_get_aged_profile_count(sp->bp_node,
