@@ -526,6 +526,14 @@ config MSM_DEBUGCC_LAHAINA
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 
+config MSM_DEBUGCC_KONA
+	bool "KONA Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  KONA devices.
+	  Say Y if you want to support clock measurement functionality.
+
 config SM_GCC_HOLI
 	tristate "HOLI Global Clock Controller"
 	depends on COMMON_CLK_QCOM
