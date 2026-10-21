@@ -17,6 +17,15 @@
 
 struct usbpd;
 
+struct usbpd_pdo {
+	bool pps;
+	int type;
+	int max_volt_mv;
+	int min_volt_mv;
+	int curr_ma;
+	int pos;
+};
+
 /* Standard IDs */
 #define USBPD_SID			0xff00
 
@@ -78,6 +87,10 @@ enum plug_orientation {
 struct usbpd *devm_usbpd_get_by_phandle(struct device *dev,
 		const char *phandle);
 
+int usbpd_fetch_pdo(struct usbpd *pd, struct usbpd_pdo *pdos);
+int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua);
+int usbpd_get_current_state(struct usbpd *pd);
+
 /*
  * Called by client to handle specific SVID messages.
  * Specify callback functions in the usbpd_svid_handler argument
@@ -113,6 +126,21 @@ static inline struct usbpd *devm_usbpd_get_by_phandle(struct device *dev,
 		const char *phandle)
 {
 	return ERR_PTR(-ENODEV);
+}
+
+static inline int usbpd_fetch_pdo(struct usbpd *pd, struct usbpd_pdo *pdos)
+{
+	return -ENODEV;
+}
+
+static inline int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua)
+{
+	return -ENODEV;
+}
+
+static inline int usbpd_get_current_state(struct usbpd *pd)
+{
+	return -ENODEV;
 }
 
 static inline int usbpd_register_svid(struct usbpd *pd,

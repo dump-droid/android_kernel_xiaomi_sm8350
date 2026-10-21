@@ -18,6 +18,7 @@ obj-$(CONFIG_WM831X_POWER)	+= wm831x_power.o
 obj-$(CONFIG_WM8350_POWER)	+= wm8350_power.o
 obj-$(CONFIG_TEST_POWER)	+= test_power.o
 obj-$(CONFIG_ONEWIRE_GPIO_PIPA)	+= maxim_pipa/
+obj-$(CONFIG_BQ2597X_CHARGE_PUMP_PIPA)	+= ti/
 
 obj-$(CONFIG_BATTERY_88PM860X)	+= 88pm860x_battery.o
 obj-$(CONFIG_CHARGER_ADP5061)	+= adp5061.o

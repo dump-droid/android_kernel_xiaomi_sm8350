@@ -162,6 +162,22 @@ int smblib_get_prop_batt_slave_temp(struct smb_charger *chg, int *temp)
 	return 0;
 }
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+int smblib_get_prop_connector_temp(struct smb_charger *chg)
+{
+	int rc = -ENODATA, retry;
+
+	for (retry = 0; retry < 3; retry++) {
+		rc = smblib_read_iio_channel(chg, chg->iio.connector_temp_chan,
+				DIV_FACTOR_DECIDEGC, &chg->connector_temp);
+		if (rc >= 0 && chg->connector_temp != -ENODATA)
+			return chg->connector_temp;
+	}
+
+	return rc < 0 ? rc : -ENODATA;
+}
+#endif
+
 static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 {
 	int rc, cc_minus_ua;
@@ -601,6 +617,13 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 		if (result != &smblib_apsd_results[HVDCP3])
 			result = &smblib_apsd_results[HVDCP2];
 	}
+
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	if (result == &smblib_apsd_results[HVDCP3] && chg->fake_hvdcp3) {
+		result = &smblib_apsd_results[HVDCP2];
+		vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, true, 2000000);
+	}
+#endif
 
 	return result;
 }
@@ -2054,6 +2077,23 @@ int smblib_get_prop_input_suspend(struct smb_charger *chg,
 	return 0;
 }
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+int smblib_get_prop_battery_input_suspend(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	val->intval = get_client_vote(chg->fcc_votable, USER_VOTER) == 0;
+	return 0;
+}
+
+int smblib_get_prop_battery_charging_enabled(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	val->intval = !is_client_vote_enabled(chg->chg_disable_votable,
+						USER_VOTER);
+	return 0;
+}
+#endif
+
 int smblib_get_prop_batt_present(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
@@ -2515,6 +2555,30 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 	return rc;
 }
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+int smblib_set_prop_battery_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc = vote(chg->fcc_votable, USER_VOTER, !!val->intval, 0);
+
+	if (!rc)
+		power_supply_changed(chg->batt_psy);
+	return rc;
+}
+
+int smblib_set_prop_battery_charging_enabled(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc;
+
+	/* Keep USB input available to the charge pump while suspending SMB charging. */
+	rc = vote(chg->chg_disable_votable, USER_VOTER, !val->intval, 0);
+	if (!rc)
+		power_supply_changed(chg->batt_psy);
+	return rc;
+}
+#endif
+
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				  const union power_supply_propval *val)
 {
@@ -2869,6 +2933,29 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 
 	return rc;
 }
+
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+int smblib_dp_dm_bq(struct smb_charger *chg, int val)
+{
+	int max_pulses = chg->real_charger_type ==
+		QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5 ? 30 : 23;
+
+	if (val == POWER_SUPPLY_DP_DM_RAISE_VOLT_START) {
+		chg->raise_vbus_to_detect = true;
+		return 0;
+	}
+	if (val == POWER_SUPPLY_DP_DM_RAISE_VOLT_DONE) {
+		chg->raise_vbus_to_detect = false;
+		return 0;
+	}
+	if (chg->raise_vbus_to_detect)
+		return 0;
+	if (val == POWER_SUPPLY_DP_DM_DP_PULSE && chg->pulse_cnt > max_pulses)
+		return 0;
+
+	return smblib_dp_dm(chg, val);
+}
+#endif
 
 int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable)
 {

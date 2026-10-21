@@ -16,6 +16,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/extcon-provider.h>
 #include <linux/usb/typec.h>
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+#include <linux/usb/usbpd.h>
+#endif
 #include <linux/qti_power_supply.h>
 #include "storm-watch.h"
 #include "battery.h"
@@ -641,6 +644,14 @@ struct smb_charger {
 	ktime_t			dcin_uv_last_time;
 	int			last_wls_vout;
 	int			batt_slave_temp;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	struct usbpd		*pd;
+	bool			use_bq_pump;
+	int			apdo_max;
+	int			pd_verifed;
+	bool			fake_hvdcp3;
+	bool			raise_vbus_to_detect;
+#endif
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -693,6 +704,19 @@ int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
 				union power_supply_propval *val);
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+int smblib_get_prop_connector_temp(struct smb_charger *chg);
+int smblib_get_prop_battery_input_suspend(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_battery_charging_enabled(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_battery_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_battery_charging_enabled(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_dp_dm_bq(struct smb_charger *chg, int val);
+struct usbpd *smb_get_usbpd(void);
+#endif
 int smblib_get_prop_batt_slave_temp(struct smb_charger *chg, int *temp);
 int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 				union power_supply_propval *val);

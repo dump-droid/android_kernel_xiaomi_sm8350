@@ -25,6 +25,31 @@
 #include "smb5-iio.h"
 #include "schgm-flash.h"
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+static struct smb_charger *__smbchg;
+
+struct usbpd *smb_get_usbpd(void)
+{
+	struct smb_charger *chg = __smbchg;
+
+	if (!chg || !chg->use_bq_pump)
+		return NULL;
+
+	if (!chg->pd) {
+		chg->pd = devm_usbpd_get_by_phandle(chg->dev,
+				"qcom,usbpd-phandle");
+		if (IS_ERR(chg->pd)) {
+			dev_dbg(chg->dev, "USB PD handle not ready: %ld\n",
+				PTR_ERR(chg->pd));
+			chg->pd = NULL;
+		}
+	}
+
+	return chg->pd;
+}
+EXPORT_SYMBOL(smb_get_usbpd);
+#endif
+
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
 		.name   = "fast charge current",
@@ -438,6 +463,9 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	chg->use_bq_pump = of_property_read_bool(node, "mi,use-bq-pump");
+#endif
 
 	chg->typec_legacy_use_rp_icl = of_property_read_bool(node,
 				"qcom,typec-legacy-rp-icl");
@@ -846,6 +874,16 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_POWER_NOW,
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_HVDCP3_TYPE,
+	POWER_SUPPLY_PROP_CONNECTOR_TEMP,
+	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
+	POWER_SUPPLY_PROP_PD_ACTIVE,
+	POWER_SUPPLY_PROP_PD_AUTHENTICATION,
+	POWER_SUPPLY_PROP_APDO_MAX,
+	POWER_SUPPLY_PROP_FAKE_HVDCP3,
+#endif
 #ifdef CONFIG_QPNP_SMB5_PIPA
 	POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP,
 #endif
@@ -901,6 +939,39 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		else
 			rc = -ENODATA;
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		val->intval = chg->real_charger_type;
+		break;
+	case POWER_SUPPLY_PROP_HVDCP3_TYPE:
+		/* Use the lower current class when SMB5 has no adapter class data. */
+		if (chg->real_charger_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
+			val->intval = 1; /* HVDCP3_CLASSA_18W */
+		else if (chg->real_charger_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5)
+			val->intval = chg->qc3p5_detected_mw >= 27000 ? 4 : 3;
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_TEMP:
+		rc = smblib_get_prop_connector_temp(chg);
+		if (rc >= 0)
+			val->intval = rc;
+		else
+			rc = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+		rc = smblib_get_prop_typec_power_role(chg, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_PD_ACTIVE:
+		val->intval = chg->pd_active;
+		break;
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+		val->intval = chg->pd_verifed;
+		break;
+	case POWER_SUPPLY_PROP_APDO_MAX:
+		val->intval = chg->apdo_max;
+		break;
+#endif
 #ifdef CONFIG_QPNP_SMB5_PIPA
 	case POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP:
 		rc = smblib_get_prop_batt_slave_temp(chg, &val->intval);
@@ -935,6 +1006,23 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_POWER_NOW:
 			chg->qc3p5_detected_mw = val->intval;
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+		rc = smblib_set_prop_typec_power_role(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_PD_ACTIVE:
+		rc = smblib_set_prop_pd_active(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+		chg->pd_verifed = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_APDO_MAX:
+		chg->apdo_max = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_FAKE_HVDCP3:
+		chg->fake_hvdcp3 = !!val->intval;
+		break;
+#endif
 	default:
 		pr_err("Set prop %d is not supported in usb psy\n",
 				psp);
@@ -951,6 +1039,13 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_POWER_NOW:
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+	case POWER_SUPPLY_PROP_PD_ACTIVE:
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+	case POWER_SUPPLY_PROP_APDO_MAX:
+	case POWER_SUPPLY_PROP_FAKE_HVDCP3:
+#endif
 		return 1;
 	default:
 		break;
@@ -1415,6 +1510,13 @@ static int smb5_init_wireless_psy(struct smb5 *chip)
  *************************/
 static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_BATTERY_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_DP_DM_BQ,
+	POWER_SUPPLY_PROP_STEP_VFLOAT_INDEX,
+#endif
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -1460,6 +1562,23 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = smblib_get_prop_input_suspend(chg, pval);
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		rc = smblib_get_prop_input_suspend(chg, pval);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_INPUT_SUSPEND:
+		rc = smblib_get_prop_battery_input_suspend(chg, pval);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		rc = smblib_get_prop_battery_charging_enabled(chg, pval);
+		break;
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+		pval->intval = chg->pulse_cnt;
+		break;
+	case POWER_SUPPLY_PROP_STEP_VFLOAT_INDEX:
+		pval->intval = 0;
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		rc = smblib_get_prop_batt_charge_type(chg, pval);
 		break;
@@ -1573,6 +1692,20 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		rc = smblib_set_prop_input_suspend(chg, val);
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		rc = smblib_set_prop_input_suspend(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_INPUT_SUSPEND:
+		rc = smblib_set_prop_battery_input_suspend(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		rc = smblib_set_prop_battery_charging_enabled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+		rc = smblib_dp_dm_bq(chg, val->intval);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
@@ -1622,6 +1755,12 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_BATTERY_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+#endif
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
@@ -3342,6 +3481,11 @@ static int smb5_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	if (chg->use_bq_pump)
+		__smbchg = chg;
+#endif
+
 	if (alarmtimer_get_rtcdev())
 		alarm_init(&chg->lpd_recheck_timer, ALARM_REALTIME,
 				smblib_lpd_recheck_timer);
@@ -3504,6 +3648,10 @@ static int smb5_remove(struct platform_device *pdev)
 	smblib_deinit(chg);
 	sysfs_remove_groups(&chg->dev->kobj, smb5_groups);
 	platform_set_drvdata(pdev, NULL);
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
+	if (__smbchg == chg)
+		__smbchg = NULL;
+#endif
 
 	return 0;
 }

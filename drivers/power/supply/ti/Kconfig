@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0
+config BQ2597X_CHARGE_PUMP_PIPA
+	tristate "Pipa BQ2597X direct charging"
+	depends on I2C && QCOM_POWER_SUPPLY && QPNP_SMB5_PIPA
+	depends on USB_PD_POLICY && QPNP_USB_PDPHY
+	help
+	  Enable the Pipa BQ2597X direct-charge pump, USB PD policy manager,
+	  and QC3.0 charging policy.
+
+config DUAL_BQ2597X
+	bool "Dual BQ2597X charge pumps"
+	depends on BQ2597X_CHARGE_PUMP_PIPA
+	help
+	  Enable support for a master and slave BQ2597X charge-pump pair.
