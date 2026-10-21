@@ -9,6 +9,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/pwm.h>
+#include <linux/regulator/consumer.h>
 #include <video/mipi_display.h>
 
 #include "dsi_panel.h"
@@ -37,6 +38,12 @@
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define HIGH_REFRESH_RATE_THRESHOLD_TIME_US	500
 #define MIN_PREFILL_LINES      40
+
+#define M82_PANEL_ID_PREFIX	0x4D383241
+#define DSI_LOCKDOWN_INFO_SIZE	8
+
+static DEFINE_MUTEX(dsi_panel_primary_lock);
+static struct dsi_panel *dsi_panel_primary;
 
 static void dsi_dce_prepare_pps_header(char *buf, u32 pps_delay_ms)
 {
@@ -334,12 +341,106 @@ static int dsi_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	return rc;
 }
 
+static int dsi_panel_m82_set_vreg(struct dsi_panel *panel,
+				 const char *name, bool enable)
+{
+	struct dsi_regulator_info *regs = &panel->power_info;
+	struct dsi_vreg *vreg = NULL;
+	int i, rc = 0, count;
+
+	for (i = 0; i < regs->count; i++) {
+		if (!strcmp(regs->vregs[i].vreg_name, name)) {
+			vreg = &regs->vregs[i];
+			break;
+		}
+	}
+	if (!vreg)
+		return -EINVAL;
+
+	if (enable) {
+		if (vreg->pre_on_sleep)
+			usleep_range(vreg->pre_on_sleep * 1000,
+				     vreg->pre_on_sleep * 1000 + 10);
+
+		rc = regulator_set_load(vreg->vreg, vreg->enable_load);
+		if (rc < 0)
+			return rc;
+
+		count = regulator_count_voltages(vreg->vreg);
+		if (count > 0) {
+			rc = regulator_set_voltage(vreg->vreg,
+						   vreg->min_voltage,
+						   vreg->max_voltage);
+			if (rc)
+				goto disable_load;
+		}
+
+		rc = regulator_enable(vreg->vreg);
+		if (rc)
+			goto reset_voltage;
+
+		if (vreg->post_on_sleep)
+			usleep_range(vreg->post_on_sleep * 1000,
+				     vreg->post_on_sleep * 1000 + 10);
+		return 0;
+
+reset_voltage:
+		if (count > 0)
+			(void)regulator_set_voltage(vreg->vreg, 0,
+						    vreg->max_voltage);
+disable_load:
+		(void)regulator_set_load(vreg->vreg, vreg->disable_load);
+		return rc;
+	}
+
+	if (vreg->pre_off_sleep)
+		usleep_range(vreg->pre_off_sleep * 1000,
+			     vreg->pre_off_sleep * 1000 + 10);
+
+	if (vreg->off_min_voltage)
+		(void)regulator_set_voltage(vreg->vreg, vreg->off_min_voltage,
+					    vreg->max_voltage);
+	(void)regulator_set_load(vreg->vreg, vreg->disable_load);
+	rc = regulator_disable(vreg->vreg);
+	if (vreg->post_off_sleep)
+		usleep_range(vreg->post_off_sleep * 1000,
+			     vreg->post_off_sleep * 1000 + 10);
+
+	return rc;
+}
+
+static int dsi_panel_m82_gesture_rails(struct dsi_panel *panel, bool enable)
+{
+	int rc;
+
+	if (enable) {
+		rc = dsi_panel_m82_set_vreg(panel, "dvddbuck", true);
+		if (rc)
+			return rc;
+		rc = dsi_panel_m82_set_vreg(panel, "dvddldo", true);
+		if (rc)
+			(void)dsi_panel_m82_set_vreg(panel, "dvddbuck", false);
+		return rc;
+	}
+
+	rc = dsi_panel_m82_set_vreg(panel, "dvddldo", false);
+	if (rc)
+		return rc;
+	return dsi_panel_m82_set_vreg(panel, "dvddbuck", false);
+}
+
 
 static int dsi_panel_power_on(struct dsi_panel *panel)
 {
 	int rc = 0;
+	bool keep_tddi_power = panel->is_tddi &&
+		panel->tddi_doubleclick_flag &&
+		(panel->panel_id >> 32) == M82_PANEL_ID_PREFIX;
 
-	rc = dsi_pwr_enable_regulator(&panel->power_info, true);
+	if (keep_tddi_power)
+		rc = dsi_panel_m82_gesture_rails(panel, true);
+	else
+		rc = dsi_pwr_enable_regulator(&panel->power_info, true);
 	if (rc) {
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
 				panel->name, rc);
@@ -352,7 +453,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_vregs;
 	}
 
-	if (panel->lp11_init)
+	if (panel->lp11_init || keep_tddi_power)
 		goto exit;
 
 	rc = dsi_panel_reset(panel);
@@ -373,7 +474,10 @@ error_disable_gpio:
 	(void)dsi_panel_set_pinctrl_state(panel, false);
 
 error_disable_vregs:
-	(void)dsi_pwr_enable_regulator(&panel->power_info, false);
+	if (keep_tddi_power)
+		(void)dsi_panel_m82_gesture_rails(panel, false);
+	else
+		(void)dsi_pwr_enable_regulator(&panel->power_info, false);
 
 exit:
 	return rc;
@@ -382,6 +486,9 @@ exit:
 static int dsi_panel_power_off(struct dsi_panel *panel)
 {
 	int rc = 0;
+	bool keep_tddi_power = panel->is_tddi &&
+		panel->tddi_doubleclick_flag &&
+		(panel->panel_id >> 32) == M82_PANEL_ID_PREFIX;
 
 	if (panel->is_twm_en || panel->skip_panel_off) {
 		DSI_DEBUG("TWM Enabled, skip panel power off\n");
@@ -390,7 +497,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
-	if (gpio_is_valid(panel->reset_config.reset_gpio) &&
+	if (!keep_tddi_power &&
+	    gpio_is_valid(panel->reset_config.reset_gpio) &&
 					!panel->reset_gpio_always_on)
 		gpio_set_value(panel->reset_config.reset_gpio, 0);
 
@@ -410,7 +518,10 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		       rc);
 	}
 
-	rc = dsi_pwr_enable_regulator(&panel->power_info, false);
+	if (keep_tddi_power)
+		rc = dsi_panel_m82_gesture_rails(panel, false);
+	else
+		rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	if (rc)
 		DSI_ERR("[%s] failed to enable vregs, rc=%d\n",
 				panel->name, rc);
@@ -468,6 +579,151 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 error:
 	return rc;
 }
+
+static int dsi_panel_read_lockdown_info(struct dsi_panel *panel)
+{
+	struct dsi_panel_cmd_set *set;
+	const struct mipi_dsi_host_ops *ops;
+	struct dsi_cmd_desc *cmd;
+	u8 lockdown_info[DSI_LOCKDOWN_INFO_SIZE] = { 0 };
+	int read_index = -1;
+	int rc = 0, i;
+
+	if (!panel)
+		return -EINVAL;
+
+	mutex_lock(&panel->panel_lock);
+	if (!panel->host || !panel->cur_mode || !panel->cur_mode->priv_info ||
+	    !panel->panel_initialized) {
+		rc = -EAGAIN;
+		goto unlock;
+	}
+
+	set = &panel->cur_mode->priv_info->cmd_sets[
+		DSI_CMD_SET_MI_READ_LOCKDOWN_INFO];
+	if (!set->cmds || !set->count) {
+		rc = -ENODATA;
+		goto unlock;
+	}
+
+	for (i = 0; i < set->count; i++) {
+		if (set->cmds[i].msg.type == MIPI_DSI_DCS_READ) {
+			if (read_index >= 0) {
+				rc = -EINVAL;
+				goto unlock;
+			}
+			read_index = i;
+		}
+	}
+	if (read_index < 0) {
+		rc = -EINVAL;
+		goto unlock;
+	}
+
+	ops = panel->host->ops;
+	if (!ops || !ops->transfer) {
+		rc = -ENODEV;
+		goto unlock;
+	}
+	for (i = 0; i < set->count; i++) {
+		cmd = &set->cmds[i];
+		if (set->state == DSI_CMD_SET_STATE_LP)
+			cmd->msg.flags |= MIPI_DSI_MSG_USE_LPM;
+		if (cmd->last_command)
+			cmd->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+
+		if (i == read_index) {
+			cmd->msg.rx_buf = lockdown_info;
+			cmd->msg.rx_len = sizeof(lockdown_info);
+			rc = ops->transfer(panel->host, &cmd->msg);
+			cmd->msg.rx_buf = NULL;
+			cmd->msg.rx_len = 0;
+			if (rc < 0 || rc != sizeof(lockdown_info)) {
+				if (rc >= 0)
+					rc = -EIO;
+				goto restore_panel_page;
+			}
+		} else {
+			if (i > read_index)
+				continue;
+			rc = ops->transfer(panel->host, &cmd->msg);
+			if (rc < 0)
+				goto restore_panel_page;
+		}
+		if (cmd->post_wait_ms)
+			usleep_range(cmd->post_wait_ms * 1000,
+				     cmd->post_wait_ms * 1000 + 10);
+	}
+	rc = 0;
+
+restore_panel_page:
+	/* Always restore the panel command page after a failed or successful read. */
+	for (i = read_index + 1; i < set->count; i++) {
+		cmd = &set->cmds[i];
+		if (set->state == DSI_CMD_SET_STATE_LP)
+			cmd->msg.flags |= MIPI_DSI_MSG_USE_LPM;
+		if (cmd->last_command)
+			cmd->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		if (ops->transfer(panel->host, &cmd->msg) < 0 && !rc)
+			rc = -EIO;
+		if (cmd->post_wait_ms)
+			usleep_range(cmd->post_wait_ms * 1000,
+				     cmd->post_wait_ms * 1000 + 10);
+	}
+
+	if (!rc) {
+		memcpy(panel->lockdown_info, lockdown_info,
+		       sizeof(panel->lockdown_info));
+		panel->lockdown_info_valid = true;
+	}
+	goto unlock;
+
+unlock:
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+ssize_t dsi_panel_lockdown_info_read(unsigned char *lockdown_info)
+{
+	struct dsi_panel *panel;
+	int rc;
+
+	if (!lockdown_info)
+		return -EINVAL;
+
+	mutex_lock(&dsi_panel_primary_lock);
+	panel = dsi_panel_primary;
+	if (!panel) {
+		rc = -ENODEV;
+		goto done;
+	}
+
+	if (!panel->lockdown_info_valid) {
+		rc = dsi_panel_read_lockdown_info(panel);
+		if (rc)
+			goto done;
+	}
+
+	memcpy(lockdown_info, panel->lockdown_info,
+	       sizeof(panel->lockdown_info));
+	rc = lockdown_info[0];
+done:
+	mutex_unlock(&dsi_panel_primary_lock);
+	return rc;
+}
+EXPORT_SYMBOL(dsi_panel_lockdown_info_read);
+
+void dsi_panel_doubleclick_enable(bool enable)
+{
+	mutex_lock(&dsi_panel_primary_lock);
+	if (dsi_panel_primary) {
+		mutex_lock(&dsi_panel_primary->panel_lock);
+		dsi_panel_primary->tddi_doubleclick_flag = enable;
+		mutex_unlock(&dsi_panel_primary->panel_lock);
+	}
+	mutex_unlock(&dsi_panel_primary_lock);
+}
+EXPORT_SYMBOL(dsi_panel_doubleclick_enable);
 
 static int dsi_panel_pinctrl_deinit(struct dsi_panel *panel)
 {
@@ -2000,6 +2256,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-local-hbm-hlpm-white-1000nit-command",
 	"mi,mdss-dsi-local-hbm-off-to-normal-command",
 	"mi,mdss-dsi-local-hbm-off-to-hlpm-command",
+	"mi,mdss-dsi-read-lockdown-info-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -2034,6 +2291,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-local-hbm-hlpm-white-1000nit-command-state",
 	"mi,mdss-dsi-local-hbm-off-to-normal-command-state",
 	"mi,mdss-dsi-local-hbm-off-to-hlpm-command-state",
+	"mi,mdss-dsi-read-lockdown-info-command-state",
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -3866,6 +4124,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	struct dsi_panel *panel;
 	struct dsi_parser_utils *utils;
 	const char *panel_physical_type;
+	u32 panel_id[2];
 	int rc = 0;
 
 	panel = kzalloc(sizeof(*panel), GFP_KERNEL);
@@ -3877,6 +4136,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	panel->panel_of_node = of_node;
 	panel->parent = parent;
 	panel->type = type;
+	panel->is_tddi = of_property_read_bool(of_node, "mi,is-tddi-flag");
+	if (!of_property_read_u32_array(of_node, "mi,panel-id", panel_id,
+					ARRAY_SIZE(panel_id)))
+		panel->panel_id = ((u64)panel_id[0] << 32) | panel_id[1];
 
 	dsi_panel_update_util(panel, parser_node);
 	utils = &panel->utils;
@@ -4006,6 +4269,11 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		goto error;
 
 	mutex_init(&panel->panel_lock);
+	if (type && !strcmp(type, "primary")) {
+		mutex_lock(&dsi_panel_primary_lock);
+		dsi_panel_primary = panel;
+		mutex_unlock(&dsi_panel_primary_lock);
+	}
 
 	return panel;
 error_vreg_put:
@@ -4017,6 +4285,11 @@ error:
 
 void dsi_panel_put(struct dsi_panel *panel)
 {
+	mutex_lock(&dsi_panel_primary_lock);
+	if (dsi_panel_primary == panel)
+		dsi_panel_primary = NULL;
+	mutex_unlock(&dsi_panel_primary_lock);
+
 	drm_panel_remove(&panel->drm_panel);
 
 	/* free resources allocated for ESD check */

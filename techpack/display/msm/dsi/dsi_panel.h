@@ -284,6 +284,11 @@ struct dsi_panel {
 	bool fod_hbm_enabled;
 	bool fod_hbm_requested;
 	bool fod_ui;
+	bool is_tddi;
+	bool tddi_doubleclick_flag;
+	u64 panel_id;
+	u8 lockdown_info[8];
+	bool lockdown_info_valid;
 	int local_hbm_on_1000nit_51_index;
 };
 
@@ -426,5 +431,8 @@ int dsi_panel_get_fod_hbm(struct dsi_panel *panel);
 int dsi_panel_apply_requested_fod_hbm(struct dsi_panel *panel);
 void dsi_panel_set_fod_ui(struct dsi_panel *panel, bool status);
 void dsi_panel_request_fod_hbm(struct dsi_panel *panel, bool status);
+
+ssize_t dsi_panel_lockdown_info_read(unsigned char *lockdown_info);
+void dsi_panel_doubleclick_enable(bool enable);
 
 #endif /* _DSI_PANEL_H_ */

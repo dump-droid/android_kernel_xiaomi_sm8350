@@ -96,8 +96,8 @@ static void release_touch_event(void);
 static void release_pen_event(void);
 static void nvt_all_para_recovery(void);
 
-extern int dsi_panel_lockdown_info_read(unsigned char *plockdowninfo) __weak;
-extern void dsi_panel_doubleclick_enable(bool on) __weak;
+extern ssize_t dsi_panel_lockdown_info_read(unsigned char *plockdowninfo);
+extern void dsi_panel_doubleclick_enable(bool on);
 extern void touch_irq_boost(void) __weak;
 extern void lpm_disable_for_dev(bool on, char event_dev) __weak;
 
@@ -1420,13 +1420,15 @@ static int nvt_get_panel_type(struct nvt_ts_data *ts_data)
 {
 	int i = 2;
 	int j;
+	int ret;
 	u8 *lockdown = ts_data->lockdown_info;
 	struct nvt_config_info *panel_list = ts->config_array;
 
-	if (!dsi_panel_lockdown_info_read)
-		return -ENODEV;
-
 	for (j = 0; j < 60; j++) {
+		ret = dsi_panel_lockdown_info_read(lockdown);
+		if (ret < 0)
+			goto wait_for_panel;
+
 		if (lockdown[1] == 0x42) {
 			i = 0;
 			break;
@@ -1436,7 +1438,8 @@ static int nvt_get_panel_type(struct nvt_ts_data *ts_data)
 			break;
 		}
 
-		mdelay(100);
+	wait_for_panel:
+		msleep(100);
 	}
 	if (i != 0 && i != 1){
 		i = 2;
@@ -2447,8 +2450,7 @@ static void nvt_set_gesture_mode(void)
 		NVT_LOG("Panel off, don't set dbclick gesture flag util panel on");
 		ts->db_wakeup = 0;
 	} else  if (ts->ic_state >= NVT_IC_RESUME_IN){
-		if (dsi_panel_doubleclick_enable)
-			dsi_panel_doubleclick_enable(!!ts->db_wakeup);
+		dsi_panel_doubleclick_enable(!!ts->db_wakeup);
 	}
 }
 
@@ -2498,8 +2500,7 @@ static int nvt_set_cur_value(int nvt_mode, int nvt_value)
 
 		}
 		ts->db_wakeup = ts->db_wakeup & 0xFD; /* close off screen short hand by defalut */
-		if (dsi_panel_doubleclick_enable)
-			dsi_panel_doubleclick_enable(!!ts->db_wakeup);
+		dsi_panel_doubleclick_enable(!!ts->db_wakeup);
 		NVT_LOG("nvt_value is 0x%02X, pen status is %s, pen id is %d, pen_bluetooth_connect is %d, pen_count is %d, db_wakeup is 0x%02X",
 					nvt_value, (nvt_value >> 4) ? "connect":"disconnct", nvt_value & 0x0F, ts->pen_bluetooth_connect, ts->pen_count, ts->db_wakeup);
 #endif
@@ -2642,8 +2643,7 @@ static u8 nvt_panel_vendor_read(void)
 	if (ts->lkdown_readed) {
 		value = ts->lockdown_info[0];
 	} else {
-		ret = dsi_panel_lockdown_info_read ?
-			dsi_panel_lockdown_info_read(ts->lockdown_info) : -ENODEV;
+		ret = dsi_panel_lockdown_info_read(ts->lockdown_info);
 		if (ret <= 0) {
 			NVT_ERR("can't get lockdown info");
 			return value;
@@ -2672,8 +2672,7 @@ static u8 nvt_panel_display_read(void)
 	if (ts->lkdown_readed) {
 		value = ts->lockdown_info[1];
 	} else {
-		ret = dsi_panel_lockdown_info_read ?
-			dsi_panel_lockdown_info_read(ts->lockdown_info) : -ENODEV;
+		ret = dsi_panel_lockdown_info_read(ts->lockdown_info);
 		if (ret <= 0) {
 			NVT_ERR("can't get lockdown info");
 			return value;
@@ -2760,8 +2759,7 @@ static void get_lockdown_info(struct work_struct *work)
 	NVT_LOG("lkdown_readed = %d", ts->lkdown_readed);
 
 	if (!ts->lkdown_readed) {
-		ret = dsi_panel_lockdown_info_read ?
-			dsi_panel_lockdown_info_read(ts->lockdown_info) : -ENODEV;
+		ret = dsi_panel_lockdown_info_read(ts->lockdown_info);
 		if (ret < 0) {
 			NVT_ERR("can't get lockdown info");
 		} else {
@@ -3953,8 +3951,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 	ts->is_usb_exist = -1;
 	queue_work(ts->event_wq, &ts->power_supply_work);
 
-	if (dsi_panel_doubleclick_enable)
-		dsi_panel_doubleclick_enable(!!ts->db_wakeup);
+	dsi_panel_doubleclick_enable(!!ts->db_wakeup);
 	if (likely(ts->ic_state == NVT_IC_RESUME_IN)) {
 		ts->ic_state = NVT_IC_RESUME_OUT;
 	} else {
@@ -3964,8 +3961,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 		ts->db_wakeup = ts->gesture_command_delayed;
 		ts->gesture_command_delayed = -1;
 		NVT_LOG("execute delayed command, set double click wakeup %d\n", ts->db_wakeup);
-		if (dsi_panel_doubleclick_enable)
-			dsi_panel_doubleclick_enable(!!ts->db_wakeup);
+		dsi_panel_doubleclick_enable(!!ts->db_wakeup);
 	}
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
