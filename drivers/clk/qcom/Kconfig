@@ -498,6 +498,14 @@ config MSM_GPUCC_KONA
 	  KONA devices.
 	  Say Y if you want to support graphics controller devices.
 
+config MSM_NPUCC_KONA
+	bool "KONA NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select MSM_GCC_KONA
+	help
+	  Support for the neural processing unit clock controller on Qualcomm
+	  Technologies, Inc. KONA devices.
+
 config MSM_CAMCC_LAHAINA
 	tristate "Lahaina Camera Clock Controller"
 	depends on COMMON_CLK_QCOM
