@@ -175,6 +175,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_SIGNAL_STRENGTH,
 	POWER_SUPPLY_PROP_REVERSE_CHG_MODE,
 	POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP,
+	/* Internal controls used by the QNovo battery charging engine. */
+	POWER_SUPPLY_PROP_CURRENT_QNOVO,
+	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 };
 
 enum power_supply_type {

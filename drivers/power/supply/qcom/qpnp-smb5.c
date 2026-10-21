@@ -1227,6 +1227,8 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
+	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 };
 
 #define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
@@ -1273,8 +1275,16 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 			pval->intval = get_client_vote(chg->fv_votable,
 						      BATT_PROFILE_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		pval->intval = get_client_vote_locked(chg->fv_votable,
+				QNOVO_VOTER);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_batt_current_now(chg, pval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		pval->intval = get_client_vote_locked(chg->fcc_votable,
+				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		pval->intval = get_client_vote(chg->fcc_votable,
@@ -1365,9 +1375,31 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->batt_profile_fv_uv = val->intval;
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		if (val->intval == -EINVAL) {
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, true,
+					chg->batt_profile_fv_uv);
+			vote(chg->fv_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fv_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, false, 0);
+		}
+		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val->intval != -EINVAL && val->intval < 2000000, 0);
+		if (val->intval == -EINVAL) {
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, true,
+					chg->batt_profile_fcc_ua);
+			vote(chg->fcc_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fcc_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	default:
 		rc = -EINVAL;
@@ -1383,6 +1415,8 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CAPACITY:
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		return 1;
 	default:
 		break;

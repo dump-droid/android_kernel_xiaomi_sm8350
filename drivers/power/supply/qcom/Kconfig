@@ -41,6 +41,13 @@ config QPNP_SMB5_PIPA
 	  Enable the pipa-specific secondary battery temperature channel and
 	  expose it through the existing SMB5 power supply.
 
+config QPNP_QNOVO5
+	bool "QPNP QNovo5 pulse charging engine"
+	depends on MFD_SPMI_PMIC && QPNP_SMB5
+	help
+	  Enable the QNovo5 PBS-based pulse charging engine used with the SMB5
+	  charger.
+
 config QPNP_SMBLITE
 	tristate "SMBLITE Battery Charger"
 	depends on MFD_SPMI_PMIC
