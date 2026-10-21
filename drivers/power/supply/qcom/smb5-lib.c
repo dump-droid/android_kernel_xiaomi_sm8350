@@ -3182,9 +3182,17 @@ int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 		}
 	}
 
+#ifdef CONFIG_FUDA_1665
+	rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+				val);
+	if (rc >= 0)
+		val->intval *= 1000;
+#else
 	rc = power_supply_get_property(chg->wls_psy,
 				POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
 				val);
+#endif
 
 	return rc;
 }
@@ -3315,9 +3323,10 @@ int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 
 #define DCIN_AICL_RERUN_DELAY_MS	5000
 int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
-					union power_supply_propval *val)
+					const union power_supply_propval *val)
 {
 	int rc = 0;
+	union power_supply_propval prop = *val;
 
 	if (!chg->wls_psy) {
 		chg->wls_psy = power_supply_get_by_name(SMB5_WLS_PSY_NAME);
@@ -3325,9 +3334,16 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 			return -ENODEV;
 	}
 
+#ifdef CONFIG_FUDA_1665
+	prop.intval /= 1000;
+	rc = power_supply_set_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+				&prop);
+#else
 	rc = power_supply_set_property(chg->wls_psy,
 				POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
-				val);
+				&prop);
+#endif
 
 	if (rc < 0)
 		dev_err(chg->dev, "Couldn't set POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT, rc=%d\n",
@@ -3350,6 +3366,52 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 
 	return rc;
 }
+
+#ifdef CONFIG_FUDA_1665
+int smblib_set_prop_wireless_wakelock(struct smb_charger *chg,
+					const union power_supply_propval *val)
+{
+	return vote(chg->awake_votable, DC_AWAKE_VOTER,
+			!!val->intval, 0);
+}
+
+int smblib_set_sw_disable_dc_en(struct smb_charger *chg,
+					const union power_supply_propval *val)
+{
+	int rc;
+	u8 mask = val->intval ? DCIN_EN_OVERRIDE_BIT | DCIN_EN_BIT :
+		DCIN_EN_OVERRIDE_BIT;
+	u8 en = val->intval ? DCIN_EN_OVERRIDE_BIT : 0;
+	u8 pulldown = val->intval ? DCIN_PON_BIT | MID_CHG_BIT : 0;
+
+	rc = vote(chg->dc_suspend_votable, SW_DISABLE_DC_VOTER, true, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, mask, en);
+	if (rc < 0)
+		goto release_vote;
+
+	rc = smblib_masked_write(chg, DCIN_CMD_PON_REG,
+				DCIN_PON_BIT | MID_CHG_BIT, pulldown);
+	if (rc < 0)
+		goto release_vote;
+
+	msleep(10);
+
+release_vote:
+	{
+		int vote_rc;
+
+		vote_rc = vote(chg->dc_suspend_votable, SW_DISABLE_DC_VOTER,
+				false, 0);
+		if (rc >= 0)
+			rc = vote_rc;
+	}
+
+	return rc;
+}
+#endif
 
 int smblib_set_prop_dc_reset(struct smb_charger *chg)
 {

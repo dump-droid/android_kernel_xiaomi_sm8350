@@ -83,6 +83,10 @@ enum print_reason {
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define OVERHEAT_LIMIT_VOTER		"OVERHEAT_LIMIT_VOTER"
 #define TYPEC_SWAP_VOTER		"TYPEC_SWAP_VOTER"
+#ifdef CONFIG_FUDA_1665
+#define DC_AWAKE_VOTER			"DC_AWAKE_VOTER"
+#define SW_DISABLE_DC_VOTER		"SW_DISABLE_DC_VOTER"
+#endif
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -418,6 +422,12 @@ struct smb_charger {
 	struct power_supply		*dc_psy;
 	struct power_supply		*usb_port_psy;
 	struct power_supply		*wls_psy;
+#ifdef CONFIG_FUDA_1665
+	struct power_supply		*wireless_psy;
+	s64				pen_bt_mac;
+	int				reverse_pen_chg_state;
+	int				reverse_gpio_state;
+#endif
 
 	/* notifiers */
 	struct notifier_block	nb;
@@ -843,7 +853,13 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val);
 int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val);
 
 int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
-				union power_supply_propval *val);
+					const union power_supply_propval *val);
+#ifdef CONFIG_FUDA_1665
+int smblib_set_prop_wireless_wakelock(struct smb_charger *chg,
+					const union power_supply_propval *val);
+int smblib_set_sw_disable_dc_en(struct smb_charger *chg,
+					const union power_supply_propval *val);
+#endif
 int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,

@@ -1098,6 +1098,9 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+#ifdef CONFIG_FUDA_1665
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+#endif
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1128,6 +1131,11 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_prop_dc_voltage_max(chg, val);
 		break;
+#ifdef CONFIG_FUDA_1665
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		rc = smblib_get_prop_voltage_wls_output(chg, val);
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -1153,6 +1161,11 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_prop_dc_current_max(chg, val);
 		break;
+#ifdef CONFIG_FUDA_1665
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		rc = smblib_set_prop_voltage_wls_output(chg, val);
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -1166,6 +1179,9 @@ static int smb5_dc_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+#ifdef CONFIG_FUDA_1665
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+#endif
 		return 1;
 	default:
 		break;
@@ -1201,6 +1217,198 @@ static int smb5_init_dc_psy(struct smb5 *chip)
 
 	return 0;
 }
+
+#ifdef CONFIG_FUDA_1665
+static enum power_supply_property smb5_wireless_props[] = {
+	POWER_SUPPLY_PROP_WIRELESS_VERSION,
+	POWER_SUPPLY_PROP_WIRELESS_FW_VERSION,
+	POWER_SUPPLY_PROP_WIRELESS_WAKELOCK,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_VRECT,
+	POWER_SUPPLY_PROP_RX_IOUT,
+	POWER_SUPPLY_PROP_SW_DISABLE_DC_EN,
+	POWER_SUPPLY_PROP_PEN_MAC,
+	POWER_SUPPLY_PROP_REVERSE_PEN_CHG_STATE,
+	POWER_SUPPLY_PROP_REVERSE_GPIO_STATE,
+	POWER_SUPPLY_PROP_REVERSE_CHG_MODE,
+	POWER_SUPPLY_PROP_REVERSE_PEN_SOC,
+	POWER_SUPPLY_PROP_DIV_2_MODE,
+	POWER_SUPPLY_PROP_OTG_STATE,
+};
+
+static int smb5_get_prop_fuda(struct smb_charger *chg,
+			enum power_supply_property psp,
+			union power_supply_propval *val)
+{
+	struct power_supply *psy;
+	int rc;
+
+	psy = power_supply_get_by_name("fuda");
+	if (!psy)
+		return -ENODEV;
+
+	rc = power_supply_get_property(psy, psp, val);
+	power_supply_put(psy);
+	if (rc < 0)
+		dev_err_ratelimited(chg->dev, "failed to read fuda property %d: %d\n",
+				    psp, rc);
+
+	return rc;
+}
+
+static int smb5_set_prop_fuda(struct smb_charger *chg,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	struct power_supply *psy;
+	int rc;
+
+	psy = power_supply_get_by_name("fuda");
+	if (!psy)
+		return -ENODEV;
+
+	rc = power_supply_set_property(psy, psp, val);
+	power_supply_put(psy);
+	if (rc < 0)
+		dev_err_ratelimited(chg->dev, "failed to set fuda property %d: %d\n",
+				    psp, rc);
+
+	return rc;
+}
+
+static int smb5_wireless_get_prop(struct power_supply *psy,
+			enum power_supply_property psp,
+			union power_supply_propval *val)
+{
+	struct smb5 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_WIRELESS_WAKELOCK:
+		val->intval = 1;
+		break;
+	case POWER_SUPPLY_PROP_PEN_MAC:
+		val->int64val = chg->pen_bt_mac;
+		break;
+	case POWER_SUPPLY_PROP_REVERSE_PEN_CHG_STATE:
+		val->intval = chg->reverse_pen_chg_state;
+		break;
+	case POWER_SUPPLY_PROP_REVERSE_GPIO_STATE:
+		val->intval = chg->reverse_gpio_state;
+		break;
+	case POWER_SUPPLY_PROP_SW_DISABLE_DC_EN:
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		rc = smblib_get_prop_voltage_wls_output(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_VRECT:
+	case POWER_SUPPLY_PROP_RX_IOUT:
+		rc = smb5_get_prop_fuda(chg, psp, val);
+		if (!rc)
+			val->intval *= 1000;
+		break;
+	case POWER_SUPPLY_PROP_WIRELESS_VERSION:
+	case POWER_SUPPLY_PROP_WIRELESS_FW_VERSION:
+	case POWER_SUPPLY_PROP_REVERSE_CHG_MODE:
+	case POWER_SUPPLY_PROP_REVERSE_PEN_SOC:
+	case POWER_SUPPLY_PROP_DIV_2_MODE:
+	case POWER_SUPPLY_PROP_OTG_STATE:
+		rc = smb5_get_prop_fuda(chg, psp, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc < 0 ? -ENODATA : 0;
+}
+
+static int smb5_wireless_set_prop(struct power_supply *psy,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	struct smb5 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_WIRELESS_VERSION:
+		dev_info(chg->dev, "wireless version %d\n", val->intval);
+		break;
+	case POWER_SUPPLY_PROP_WIRELESS_WAKELOCK:
+		return smblib_set_prop_wireless_wakelock(chg, val);
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		return smblib_set_prop_voltage_wls_output(chg, val);
+	case POWER_SUPPLY_PROP_SW_DISABLE_DC_EN:
+		return smblib_set_sw_disable_dc_en(chg, val);
+	case POWER_SUPPLY_PROP_PEN_MAC:
+		chg->pen_bt_mac = val->int64val;
+		break;
+	case POWER_SUPPLY_PROP_REVERSE_PEN_CHG_STATE:
+		chg->reverse_pen_chg_state = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_REVERSE_GPIO_STATE:
+		chg->reverse_gpio_state = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_REVERSE_CHG_MODE:
+	case POWER_SUPPLY_PROP_DIV_2_MODE:
+	case POWER_SUPPLY_PROP_OTG_STATE:
+		return smb5_set_prop_fuda(chg, psp, val);
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int smb5_wireless_prop_is_writeable(struct power_supply *psy,
+			enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_WIRELESS_WAKELOCK:
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+	case POWER_SUPPLY_PROP_SW_DISABLE_DC_EN:
+	case POWER_SUPPLY_PROP_PEN_MAC:
+	case POWER_SUPPLY_PROP_REVERSE_PEN_CHG_STATE:
+	case POWER_SUPPLY_PROP_REVERSE_GPIO_STATE:
+	case POWER_SUPPLY_PROP_WIRELESS_VERSION:
+	case POWER_SUPPLY_PROP_REVERSE_CHG_MODE:
+	case POWER_SUPPLY_PROP_DIV_2_MODE:
+	case POWER_SUPPLY_PROP_OTG_STATE:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static const struct power_supply_desc wireless_psy_desc = {
+	.name = "wireless",
+	.type = POWER_SUPPLY_TYPE_WIRELESS,
+	.properties = smb5_wireless_props,
+	.num_properties = ARRAY_SIZE(smb5_wireless_props),
+	.get_property = smb5_wireless_get_prop,
+	.set_property = smb5_wireless_set_prop,
+	.property_is_writeable = smb5_wireless_prop_is_writeable,
+};
+
+static int smb5_init_wireless_psy(struct smb5 *chip)
+{
+	struct power_supply_config wireless_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	wireless_cfg.drv_data = chip;
+	wireless_cfg.of_node = chg->dev->of_node;
+	chg->wireless_psy = devm_power_supply_register(chg->dev,
+						       &wireless_psy_desc,
+						       &wireless_cfg);
+	if (IS_ERR(chg->wireless_psy)) {
+		dev_err(chg->dev, "couldn't register wireless power supply\n");
+		return PTR_ERR(chg->wireless_psy);
+	}
+
+	return 0;
+}
+#endif
 
 /*************************
  * BATT PSY REGISTRATION *
@@ -3199,6 +3407,17 @@ static int smb5_probe(struct platform_device *pdev)
 	default:
 		break;
 	}
+
+#ifdef CONFIG_FUDA_1665
+	if (of_property_read_bool(chg->dev->of_node, "qcom,support-wireless")) {
+		rc = smb5_init_wireless_psy(chip);
+		if (rc < 0) {
+			dev_err(chg->dev, "couldn't initialize wireless psy rc=%d\n",
+				rc);
+			goto cleanup;
+		}
+	}
+#endif
 
 	rc = smb5_init_usb_psy(chip);
 	if (rc < 0) {

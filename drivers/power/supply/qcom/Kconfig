@@ -33,6 +33,14 @@ config HL6111R
 	  Enable the Pipa wireless charging receiver interface for the
 	  Halo Microelectronics HL6111R.
 
+config FUDA_1665
+	bool "Nuvolta NU1665 wireless receiver"
+	depends on I2C && QPNP_SMB5_PIPA
+	select REGMAP_I2C
+	help
+	  Enable the Pipa Nuvolta NU1665 wireless receiver and reverse charging
+	  controller.
+
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
 	depends on MFD_SPMI_PMIC && IIO && TYPEC

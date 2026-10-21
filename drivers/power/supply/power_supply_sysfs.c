@@ -63,8 +63,8 @@ struct power_supply_attr {
 	}
 #endif
 
-#ifdef CONFIG_HL6111R
-#define POWER_SUPPLY_HL6111R_ATTR(_prop, _name)	\
+#if defined(CONFIG_HL6111R) || defined(CONFIG_FUDA_1665)
+#define POWER_SUPPLY_WLS_ATTR(_prop, _name)		\
 	[POWER_SUPPLY_PROP_ ## _prop] = {		\
 		.prop_name = #_prop,			\
 		.attr_name = #_name,			\
@@ -309,11 +309,33 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_FG_ATTR(KI_COEFF_CURRENT, ki_coeff_current),
 	POWER_SUPPLY_FG_ATTR(RECHARGE_SOC, recharge_soc),
 #endif
-#ifdef CONFIG_HL6111R
-	POWER_SUPPLY_HL6111R_ATTR(VOLTAGE_STEP, voltage_step),
-	POWER_SUPPLY_HL6111R_ATTR(INPUT_VOLTAGE_REGULATION,
+#if defined(CONFIG_HL6111R) || defined(CONFIG_FUDA_1665)
+	POWER_SUPPLY_WLS_ATTR(INPUT_VOLTAGE_REGULATION,
 						input_voltage_regulation),
-	POWER_SUPPLY_HL6111R_ATTR(CHIP_VERSION, chip_version),
+#endif
+#ifdef CONFIG_HL6111R
+	POWER_SUPPLY_WLS_ATTR(VOLTAGE_STEP, voltage_step),
+	POWER_SUPPLY_WLS_ATTR(CHIP_VERSION, chip_version),
+#endif
+#ifdef CONFIG_FUDA_1665
+	POWER_SUPPLY_WLS_ATTR(PIN_ENABLED, pin_enabled),
+	POWER_SUPPLY_WLS_ATTR(WIRELESS_VERSION, wireless_version),
+	POWER_SUPPLY_WLS_ATTR(WIRELESS_FW_VERSION, wireless_fw_version),
+	POWER_SUPPLY_WLS_ATTR(INPUT_VOLTAGE_VRECT, input_voltage_vrect),
+	POWER_SUPPLY_WLS_ATTR(RX_IOUT, rx_iout),
+	POWER_SUPPLY_WLS_ATTR(WIRELESS_TX_ID, wireless_tx_id),
+	POWER_SUPPLY_WLS_ATTR(DIV_2_MODE, div_2_mode),
+	POWER_SUPPLY_WLS_ATTR(OTG_STATE, otg_state),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_CHG_HALL3, reverse_chg_hall3),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_CHG_HALL4, reverse_chg_hall4),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_PEN_SOC, reverse_pen_soc),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_VOUT, reverse_vout),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_IOUT, reverse_iout),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_GPIO_STATE, reverse_gpio_state),
+	POWER_SUPPLY_WLS_ATTR(REVERSE_PEN_CHG_STATE, reverse_pen_chg_state),
+	POWER_SUPPLY_WLS_ATTR(PEN_MAC, pen_mac),
+	POWER_SUPPLY_WLS_ATTR(SW_DISABLE_DC_EN, sw_disable_dc_en),
+	POWER_SUPPLY_WLS_ATTR(WIRELESS_WAKELOCK, wireless_wakelock),
 #endif
 };
 
@@ -431,6 +453,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 	case POWER_SUPPLY_PROP_MODEL_NAME ... POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = sprintf(buf, "%s\n", value.strval);
 		break;
+#ifdef CONFIG_FUDA_1665
+	case POWER_SUPPLY_PROP_PEN_MAC:
+		ret = scnprintf(buf, PAGE_SIZE, "%llx\n",
+				(unsigned long long)value.int64val);
+		break;
+#endif
 	default:
 		ret = sprintf(buf, "%d\n", value.intval);
 	}
@@ -446,6 +474,22 @@ static ssize_t power_supply_store_property(struct device *dev,
 	struct power_supply_attr *ps_attr = to_ps_attr(attr);
 	enum power_supply_property psp = dev_attr_psp(attr);
 	union power_supply_propval value;
+#ifdef CONFIG_FUDA_1665
+	s64 value64;
+#endif
+	int rc;
+
+#ifdef CONFIG_FUDA_1665
+	if (psp == POWER_SUPPLY_PROP_PEN_MAC) {
+		rc = kstrtoll(buf, 16, &value64);
+		if (rc < 0)
+			return rc;
+
+		value.int64val = value64;
+		ret = power_supply_set_property(psy, psp, &value);
+		return ret < 0 ? ret : count;
+	}
+#endif
 
 	ret = -EINVAL;
 	if (ps_attr->text_values_len > 0) {
