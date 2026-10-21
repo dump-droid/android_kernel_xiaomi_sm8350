@@ -778,6 +778,7 @@ static void mhi_netdev_push_skb(struct mhi_netdev *mhi_netdev,
 			mhi_result->bytes_xferd, mhi_netdev->mru);
 	skb->dev = mhi_netdev->ndev;
 	skb->protocol = mhi_netdev_ip_type_trans(*(u8 *)mhi_buf->buf);
+	skb_set_mac_header(skb, 0);
 	netif_receive_skb(skb);
 }
 
@@ -820,6 +821,7 @@ static void mhi_netdev_xfer_dl_cb(struct mhi_device *mhi_dev,
 			skb->dev = ndev;
 			skb->protocol =
 				mhi_netdev_ip_type_trans(*(u8 *)mhi_buf->buf);
+			skb_set_mac_header(skb, 0);
 			chain->head = skb;
 		} else {
 			skb_shinfo(chain->tail)->frag_list = skb;
