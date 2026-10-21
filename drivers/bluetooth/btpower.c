@@ -121,6 +121,20 @@ static struct bt_power_vreg_data bt_vregs_info_qca6xx0[] = {
 		{BT_VDD_IPA_2p2, BT_VDD_IPA_2p2_CURRENT}},
 };
 
+/* Regulator structure for QCA6390 devices using the QCA DT binding. */
+static struct bt_power_vreg_data bt_vregs_info_qca6390[] = {
+	{NULL, "qca,bt-vdd-aon", 950000, 950000, 0, false, true,
+		{BT_VDD_AON_LDO, BT_VDD_AON_LDO_CURRENT}},
+	{NULL, "qca,bt-vdd-dig", 950000, 952000, 0, false, true,
+		{BT_VDD_DIG_LDO, BT_VDD_DIG_LDO_CURRENT}},
+	{NULL, "qca,bt-vdd-rfa1", 1900000, 1900000, 0, false, true,
+		{BT_VDD_RFA1_LDO, BT_VDD_RFA1_LDO_CURRENT}},
+	{NULL, "qca,bt-vdd-rfa2", 1350000, 1350000, 0, false, true,
+		{BT_VDD_RFA2_LDO, BT_VDD_RFA2_LDO_CURRENT}},
+	{NULL, "qca,bt-vdd-asd", 3024000, 3304000, 10000, false, true,
+		{BT_VDD_ASD_LDO, BT_VDD_ASD_LDO_CURRENT}},
+};
+
 // Regulator structure for WCN399x BT SoC series
 static struct bt_power bt_vreg_info_wcn399x = {
 	.compatible = "qcom,wcn3990",
@@ -170,6 +184,12 @@ static struct bt_power bt_vreg_info_qca6390 = {
 	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
 
+static struct bt_power bt_vreg_info_qca6390_qca = {
+	.compatible = "qca,qca6390",
+	.vregs = bt_vregs_info_qca6390,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6390),
+};
+
 static struct bt_power bt_vreg_info_qca6490 = {
 	.compatible = "qcom,qca6490",
 	.vregs = bt_vregs_info_qca6xx0,
@@ -186,6 +206,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,qca6174", .data = &bt_vreg_info_qca6174},
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
+	{	.compatible = "qca,qca6390", .data = &bt_vreg_info_qca6390_qca},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
 	{	.compatible = "qcom,wcn6750-bt", .data = &bt_vreg_info_wcn6750},
 	{	.compatible = "qcom,qca-auto-converged", .data = &bt_vreg_info_qca_auto},
@@ -709,6 +730,7 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 	struct bt_power_vreg_data *vreg = vreg_data;
 	struct device_node *np = dev->of_node;
 	const char *vreg_name = vreg_data->name;
+	bool qca_binding = !strncmp(vreg_name, "qca,", 4);
 
 	pr_debug("%s: vreg dev tree parse for %s\n", __func__, vreg_name);
 
@@ -723,17 +745,38 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 			return ret;
 		}
 
-		snprintf(prop_name, sizeof(prop_name), "%s-config", vreg->name);
-		prop = of_get_property(dev->of_node, prop_name, &len);
-		if (!prop || len != (4 * sizeof(__be32))) {
-			pr_debug("%s: Property %s %s, use default\n",
-				__func__, prop_name,
-				prop ? "invalid format" : "doesn't exist");
+		if (qca_binding) {
+			snprintf(prop_name, sizeof(prop_name),
+				 "%s-voltage-level", vreg->name);
+			prop = of_get_property(dev->of_node, prop_name, &len);
+			if (!prop || len != (2 * sizeof(__be32))) {
+				pr_debug("%s: Property %s %s, use default\n",
+					__func__, prop_name,
+					prop ? "invalid format" : "doesn't exist");
+			} else {
+				vreg->min_vol = be32_to_cpup(&prop[0]);
+				vreg->max_vol = be32_to_cpup(&prop[1]);
+			}
+
+			snprintf(prop_name, sizeof(prop_name),
+				 "%s-current-level", vreg->name);
+			of_property_read_u32(dev->of_node, prop_name,
+					     &vreg->load_curr);
 		} else {
-			vreg->min_vol = be32_to_cpup(&prop[0]);
-			vreg->max_vol = be32_to_cpup(&prop[1]);
-			vreg->load_curr = be32_to_cpup(&prop[2]);
-			vreg->is_retention_supp = be32_to_cpup(&prop[3]);
+			snprintf(prop_name, sizeof(prop_name), "%s-config",
+				 vreg->name);
+			prop = of_get_property(dev->of_node, prop_name, &len);
+			if (!prop || len != (4 * sizeof(__be32))) {
+				pr_debug("%s: Property %s %s, use default\n",
+					__func__, prop_name,
+					prop ? "invalid format" : "doesn't exist");
+			} else {
+				vreg->min_vol = be32_to_cpup(&prop[0]);
+				vreg->max_vol = be32_to_cpup(&prop[1]);
+				vreg->load_curr = be32_to_cpup(&prop[2]);
+				vreg->is_retention_supp =
+					be32_to_cpup(&prop[3]);
+			}
 		}
 
 		pr_debug("%s: Got regulator: %s, min_vol: %u, max_vol: %u, load_curr: %u,is_retention_supp: %u\n",
@@ -900,6 +943,8 @@ static int bt_disable_asd(void)
 static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 {
 	int rc;
+	char prop_name[MAX_PROP_SIZE];
+	const char *prefix;
 
 	pr_debug("%s\n", __func__);
 
@@ -911,35 +956,42 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		if (rc)
 			return rc;
 
+		prefix = !strncmp(bt_power_pdata->compatible, "qca,", 4) ?
+			"qca" : "qcom";
+
+		snprintf(prop_name, sizeof(prop_name), "%s,bt-reset-gpio",
+			 prefix);
 		bt_power_pdata->bt_gpio_sys_rst =
-			of_get_named_gpio(pdev->dev.of_node,
-						"qcom,bt-reset-gpio", 0);
+			of_get_named_gpio(pdev->dev.of_node, prop_name, 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
 			pr_warn("bt-reset-gpio not provided in devicetree\n");
 
+		snprintf(prop_name, sizeof(prop_name), "%s,wl-reset-gpio",
+			 prefix);
 		bt_power_pdata->wl_gpio_sys_rst =
-			of_get_named_gpio(pdev->dev.of_node,
-						"qcom,wl-reset-gpio", 0);
+			of_get_named_gpio(pdev->dev.of_node, prop_name, 0);
 		if (bt_power_pdata->wl_gpio_sys_rst < 0)
 			pr_err("%s: wl-reset-gpio not provided in device tree\n",
 				__func__);
 
-
+		snprintf(prop_name, sizeof(prop_name), "%s,bt-sw-ctrl-gpio",
+			 prefix);
 		bt_power_pdata->bt_gpio_sw_ctrl  =
-			of_get_named_gpio(pdev->dev.of_node,
-						"qcom,bt-sw-ctrl-gpio",  0);
+			of_get_named_gpio(pdev->dev.of_node, prop_name, 0);
 		if (bt_power_pdata->bt_gpio_sw_ctrl < 0)
 			pr_warn("bt-sw-ctrl-gpio not provided in devicetree\n");
 
+		snprintf(prop_name, sizeof(prop_name), "%s,bt-debug-gpio",
+			 prefix);
 		bt_power_pdata->bt_gpio_debug  =
-			of_get_named_gpio(pdev->dev.of_node,
-						"qcom,bt-debug-gpio",  0);
+			of_get_named_gpio(pdev->dev.of_node, prop_name, 0);
 		if (bt_power_pdata->bt_gpio_debug < 0)
 			pr_warn("bt-debug-gpio not provided in devicetree\n");
 
+		snprintf(prop_name, sizeof(prop_name), "%s,xo-reset-gpio",
+			 prefix);
 		bt_power_pdata->xo_gpio_sys_rst =
-			of_get_named_gpio(pdev->dev.of_node,
-						"qcom,xo-reset-gpio", 0);
+			of_get_named_gpio(pdev->dev.of_node, prop_name, 0);
 		if (bt_power_pdata->xo_gpio_sys_rst < 0)
 			pr_warn("xo-reset-gpio not provided in devicetree\n");
 

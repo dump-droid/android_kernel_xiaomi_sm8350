@@ -462,4 +462,10 @@ config BTFM_SLIM
 		Say Y here to compile support for Bluetooth slimbus driver
 		into the kernel or say M to compile as a module.
 
+config BT_SLIM_QCA6390
+	bool "MSM Bluetooth QCA6390 Device"
+	select BTFM_SLIM
+	help
+	  Enable the QCA6390-specific Bluetooth/FM Slimbus initialization.
+
 endmenu
