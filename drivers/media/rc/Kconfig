@@ -318,6 +318,13 @@ config IR_SPI
 	  To compile this driver as a module, choose M here: the module will be
 	  called ir-spi.
 
+config IR_SPI_PIPA
+	tristate "Pipa SPI infrared transmitter"
+	depends on SPI && OF
+	help
+	  Say Y here to support the Pipa SPI infrared transmitter and its
+	  /dev/ir_spi userspace interface.
+
 config IR_STREAMZAP
 	tristate "Streamzap PC Remote IR Receiver"
 	depends on USB_ARCH_HAS_HCD
