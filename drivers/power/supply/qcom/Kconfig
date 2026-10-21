@@ -25,6 +25,14 @@ config QPNP_FG_GEN4_PIPA
 	  Enable the Pipa-specific QPNP Gen4 fuel gauge, including its two
 	  battery authentication interfaces and learned battery profiles.
 
+config HL6111R
+	bool "HL6111R wireless power receiver"
+	depends on I2C && OF
+	select REGMAP_I2C
+	help
+	  Enable the Pipa wireless charging receiver interface for the
+	  Halo Microelectronics HL6111R.
+
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
 	depends on MFD_SPMI_PMIC && IIO && TYPEC

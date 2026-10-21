@@ -232,6 +232,12 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_SYS_TERMINATION_CURRENT,
 	POWER_SUPPLY_PROP_VBATT_FULL_VOL,
 #endif
+#ifdef CONFIG_HL6111R
+	/* HL6111R wireless receiver properties. */
+	POWER_SUPPLY_PROP_VOLTAGE_STEP,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+	POWER_SUPPLY_PROP_CHIP_VERSION,
+#endif
 };
 
 enum power_supply_type {

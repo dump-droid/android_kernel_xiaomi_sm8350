@@ -7,6 +7,7 @@ obj-$(CONFIG_QPNP_QG)	+= qcom-qpnp-qg.o
 qcom-qpnp-qg-y	+= qpnp-qg.o battery-profile-loader.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
 obj-$(CONFIG_QPNP_FG_GEN4_PIPA) += qcom-qpnp-fg-gen4-pipa.o
 qcom-qpnp-fg-gen4-pipa-y += qpnp-fg-gen4-pipa.o fg-memif.o fg-util.o fg-alg.o
+obj-$(CONFIG_HL6111R)		+= hl6111r.o
 obj-$(CONFIG_SMB1398_CHARGER)           += qcom-smb1398-charger.o
 qcom-smb1398-charger-y += smb1398-charger.o pmic-voter.o
 obj-$(CONFIG_QPNP_SMBLITE) += qpnp-smblite-main.o

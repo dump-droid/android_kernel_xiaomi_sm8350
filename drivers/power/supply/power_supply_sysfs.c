@@ -63,6 +63,16 @@ struct power_supply_attr {
 	}
 #endif
 
+#ifdef CONFIG_HL6111R
+#define POWER_SUPPLY_HL6111R_ATTR(_prop, _name)	\
+	[POWER_SUPPLY_PROP_ ## _prop] = {		\
+		.prop_name = #_prop,			\
+		.attr_name = #_name,			\
+		.text_values = NULL,			\
+		.text_values_len = 0,			\
+	}
+#endif
+
 static const char * const POWER_SUPPLY_TYPE_TEXT[] = {
 	[POWER_SUPPLY_TYPE_UNKNOWN]		= "Unknown",
 	[POWER_SUPPLY_TYPE_BATTERY]		= "Battery",
@@ -298,6 +308,12 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_FG_ATTR(FFC_VBATT_FULL_VOL, ffc_vbatt_full_vol),
 	POWER_SUPPLY_FG_ATTR(KI_COEFF_CURRENT, ki_coeff_current),
 	POWER_SUPPLY_FG_ATTR(RECHARGE_SOC, recharge_soc),
+#endif
+#ifdef CONFIG_HL6111R
+	POWER_SUPPLY_HL6111R_ATTR(VOLTAGE_STEP, voltage_step),
+	POWER_SUPPLY_HL6111R_ATTR(INPUT_VOLTAGE_REGULATION,
+						input_voltage_regulation),
+	POWER_SUPPLY_HL6111R_ATTR(CHIP_VERSION, chip_version),
 #endif
 };
 
