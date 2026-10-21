@@ -648,6 +648,13 @@ static int smb5_parse_dt_adc_channels(struct smb_charger *chg)
 	if (rc < 0)
 		return rc;
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	rc = smblib_get_iio_channel(chg, "batt_slave_temp",
+				&chg->iio.batt_slave_temp_chan);
+	if (rc < 0)
+		return rc;
+#endif
+
 	return 0;
 }
 
@@ -839,6 +846,9 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_POWER_NOW,
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP,
+#endif
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -891,6 +901,11 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		else
 			rc = -ENODATA;
 		break;
+#ifdef CONFIG_QPNP_SMB5_PIPA
+	case POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP:
+		rc = smblib_get_prop_batt_slave_temp(chg, &val->intval);
+		break;
+#endif
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -1275,9 +1290,20 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		if (chg->typec_mode ==
 			QTI_POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
 			pval->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
-		else
+		else {
 			rc = smblib_get_prop_from_bms(chg,
 						SMB5_QG_TEMP, &pval->intval);
+#ifdef CONFIG_QPNP_SMB5_PIPA
+			if (!rc) {
+				int slave_temp;
+
+				if (!smblib_get_prop_batt_slave_temp(chg,
+						&slave_temp) &&
+						slave_temp > pval->intval)
+					pval->intval = slave_temp;
+			}
+#endif
+		}
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		pval->intval = POWER_SUPPLY_TECHNOLOGY_LION;

@@ -24,6 +24,12 @@
 #include "smb5-iio.h"
 #include "battery-profile-loader.h"
 
+#ifdef CONFIG_QPNP_SMB5_PIPA
+#define SMB5_WLS_PSY_NAME	"fuda"
+#else
+#define SMB5_WLS_PSY_NAME	"wireless"
+#endif
+
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
 		__func__, ##__VA_ARGS__)	\
@@ -124,6 +130,22 @@ static int smblib_read_iio_channel(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+int smblib_get_prop_batt_slave_temp(struct smb_charger *chg, int *temp)
+{
+	int rc;
+
+	rc = smblib_read_iio_channel(chg, chg->iio.batt_slave_temp_chan,
+				DIV_FACTOR_DECIDEGC, &chg->batt_slave_temp);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read slave battery temperature, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	*temp = chg->batt_slave_temp;
+	return 0;
 }
 
 static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
@@ -3139,7 +3161,7 @@ int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
 	int rc = 0;
 
 	if (!chg->wls_psy) {
-		chg->wls_psy = power_supply_get_by_name("wireless");
+		chg->wls_psy = power_supply_get_by_name(SMB5_WLS_PSY_NAME);
 		if (!chg->wls_psy) {
 			val->intval = -EINVAL;
 			return 0;
@@ -3225,7 +3247,7 @@ int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
 	val->intval = MICRO_12V;
 
 	if (!chg->wls_psy)
-		chg->wls_psy = power_supply_get_by_name("wireless");
+		chg->wls_psy = power_supply_get_by_name(SMB5_WLS_PSY_NAME);
 
 	if (chg->wls_psy) {
 		rc = power_supply_get_property(chg->wls_psy,
@@ -3247,7 +3269,7 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 	int rc = 0;
 
 	if (!chg->wls_psy) {
-		chg->wls_psy = power_supply_get_by_name("wireless");
+		chg->wls_psy = power_supply_get_by_name(SMB5_WLS_PSY_NAME);
 		if (!chg->wls_psy) {
 			val->intval = -EINVAL;
 			return 0;
@@ -3284,7 +3306,7 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 	int rc = 0;
 
 	if (!chg->wls_psy) {
-		chg->wls_psy = power_supply_get_by_name("wireless");
+		chg->wls_psy = power_supply_get_by_name(SMB5_WLS_PSY_NAME);
 		if (!chg->wls_psy)
 			return -ENODEV;
 	}
@@ -8319,6 +8341,8 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 		iio_channel_release(chg->iio.skin_temp_chan);
 	if (!IS_ERR_OR_NULL(chg->iio.smb_temp_chan))
 		iio_channel_release(chg->iio.smb_temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.batt_slave_temp_chan))
+		iio_channel_release(chg->iio.batt_slave_temp_chan);
 }
 
 int smblib_init(struct smb_charger *chg)

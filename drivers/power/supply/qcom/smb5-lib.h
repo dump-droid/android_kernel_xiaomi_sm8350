@@ -362,6 +362,7 @@ struct parallel_params {
 
 struct smb_iio {
 	struct iio_channel	*temp_chan;
+	struct iio_channel	*batt_slave_temp_chan;
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
 	struct iio_channel	*mid_chan;
@@ -629,6 +630,7 @@ struct smb_charger {
 	int			dcin_uv_count;
 	ktime_t			dcin_uv_last_time;
 	int			last_wls_vout;
+	int			batt_slave_temp;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -681,6 +683,7 @@ int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_batt_slave_temp(struct smb_charger *chg, int *temp);
 int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_status(struct smb_charger *chg,

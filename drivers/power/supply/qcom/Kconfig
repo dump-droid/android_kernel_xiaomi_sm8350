@@ -34,6 +34,13 @@ config QPNP_SMB5
 	  To compile this driver as a module, choose M here: the
 	  module will be called qpnp-smb5-main.
 
+config QPNP_SMB5_PIPA
+	bool "Xiaomi Pad 6 SMB5 battery temperature support"
+	depends on QPNP_SMB5
+	help
+	  Enable the pipa-specific secondary battery temperature channel and
+	  expose it through the existing SMB5 power supply.
+
 config QPNP_SMBLITE
 	tristate "SMBLITE Battery Charger"
 	depends on MFD_SPMI_PMIC

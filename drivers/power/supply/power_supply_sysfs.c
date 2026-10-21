@@ -214,6 +214,12 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(TX_ADAPTER),
 	POWER_SUPPLY_ATTR(SIGNAL_STRENGTH),
 	POWER_SUPPLY_ATTR(REVERSE_CHG_MODE),
+	[POWER_SUPPLY_PROP_BATTERY_SLAVE_TEMP] = {
+		.prop_name = "batt_slave_temp",
+		.attr_name = "batt_slave_temp",
+		.text_values = NULL,
+		.text_values_len = 0,
+	},
 };
 
 static struct attribute *
