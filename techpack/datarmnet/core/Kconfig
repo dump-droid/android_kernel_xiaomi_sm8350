@@ -2,8 +2,10 @@
 # RMNET MAP driver
 #
 
-menuconfig RMNET_CORE
-	default m 
+config RMNET_CORE
+	tristate "RMNET MAP core"
+	depends on NET && !RMNET
+	default n
 	select GRO_CELLS
 	---help---
 	  If you select this, you will enable the RMNET module which is used
@@ -11,8 +13,11 @@ menuconfig RMNET_CORE
 	  format in the embedded data path. RMNET devices can be attached to
 	  any IP mode physical device.
 
-menuconfig RMNET_CTL
-	default m
+
+config RMNET_CTL
+	tristate "RMNET control MHI client"
+	depends on MHI_BUS
+	default n
 	---help---
 	  Enable the RMNET CTL module which is used for handling QMAP commands
 	  for flow control purposes.
