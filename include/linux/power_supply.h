@@ -334,6 +334,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_TI_SET_BUS_PROTECTION_FOR_PD,
 	POWER_SUPPLY_PROP_TI_BUS_ERROR_STATUS,
 #endif
+	/* USB-C DisplayPort Alt Mode state reported by the USB-PD policy. */
+	POWER_SUPPLY_PROP_HAS_DP,
 };
 
 enum power_supply_type {

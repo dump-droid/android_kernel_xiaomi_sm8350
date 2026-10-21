@@ -372,6 +372,7 @@ static struct power_supply_attr power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(TI_SET_BUS_PROTECTION_FOR_PD),
 	POWER_SUPPLY_ATTR(TI_BUS_ERROR_STATUS),
 #endif
+	POWER_SUPPLY_ATTR(HAS_DP),
 };
 
 static struct attribute *

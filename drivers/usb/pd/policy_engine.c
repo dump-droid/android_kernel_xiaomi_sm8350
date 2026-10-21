@@ -697,6 +697,10 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 		start_usb_host(pd, false);
 
 	pd->ss_lane_svid = hdlr->svid;
+	/* Notify display consumers after USB has released the SuperSpeed lanes. */
+	ret = extcon_set_state_sync(pd->extcon, EXTCON_DISP_DP, true);
+	if (ret)
+		usbpd_err(&pd->dev, "failed to notify DP lane ownership: %d\n", ret);
 
 err_exit:
 	return ret;
@@ -947,8 +951,9 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
 		start_usb_peripheral(pd);
 
-	/* Select the first PDO (vSafe5V) immediately. */
-	pd_select_pdo(pd, 1, 0, 0);
+	/* Do not replace the charger's request after a soft reset was rejected. */
+	if (!pd->request_reject)
+		pd_select_pdo(pd, 1, 0, 0);
 
 	return 0;
 }
@@ -1582,6 +1587,7 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 {
 	int ret;
+	union power_supply_propval val;
 	u32 vdm_hdr =
 	rx_msg->data_len >= sizeof(u32) ? ((u32 *)rx_msg->payload)[0] : 0;
 
@@ -1599,8 +1605,19 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			svid, cmd, cmd_type, vdm_hdr,
 			pd->has_dp ? "true" : "false");
 
-	if ((svid == 0xFF01) && (!pd->has_dp))
+	if ((svid == 0xFF01) && (!pd->has_dp)) {
 		pd->has_dp = true;
+		val.intval = 1;
+		ret = power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_HAS_DP, &val);
+		if (ret)
+			usbpd_dbg(&pd->dev,
+				"failed to set HAS_DP property: %d\n", ret);
+		ret = extcon_set_state_sync(pd->extcon, EXTCON_DISP_DP, true);
+		if (ret)
+			usbpd_err(&pd->dev,
+				"failed to notify DP Alt Mode: %d\n", ret);
+	}
 
 	/* if it's a supported SVID, pass the message to the handler */
 	handler = find_svid_handler(pd, svid);
@@ -3620,6 +3637,7 @@ static const struct usbpd_state_handler state_handlers[] = {
 static void handle_disconnect(struct usbpd *pd)
 {
 	union power_supply_propval val = {0};
+	int ret;
 
 	if (pd->vconn_enabled) {
 		regulator_disable(pd->vconn);
@@ -3701,8 +3719,19 @@ static void handle_disconnect(struct usbpd *pd)
 	typec_unregister_partner(pd->partner);
 	pd->partner = NULL;
 
-	if (pd->has_dp)
+	if (pd->has_dp) {
 		pd->has_dp = false;
+		val.intval = 0;
+		ret = power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_HAS_DP, &val);
+		if (ret)
+			usbpd_dbg(&pd->dev,
+				"failed to clear HAS_DP property: %d\n", ret);
+		ret = extcon_set_state_sync(pd->extcon, EXTCON_DISP_DP, false);
+		if (ret)
+			usbpd_err(&pd->dev,
+				"failed to clear DP Alt Mode: %d\n", ret);
+	}
 }
 
 static void handle_hard_reset(struct usbpd *pd)
@@ -4084,7 +4113,7 @@ static int usbpd_typec_dr_set(struct typec_port *port,
 	}
 
 	if (do_swap) {
-		ret = usbpd_do_swap(pd, true, 100);
+		ret = usbpd_do_swap(pd, true, 2000);
 		if (ret)
 			return ret;
 

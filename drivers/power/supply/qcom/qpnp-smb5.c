@@ -874,6 +874,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_POWER_NOW,
+	POWER_SUPPLY_PROP_HAS_DP,
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_HVDCP3_TYPE,
@@ -938,6 +939,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 			val->intval = chg->qc3p5_detected_mw;
 		else
 			rc = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_HAS_DP:
+		val->intval = chg->has_dp;
 		break;
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	case POWER_SUPPLY_PROP_REAL_TYPE:
@@ -1006,6 +1010,9 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_POWER_NOW:
 			chg->qc3p5_detected_mw = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_HAS_DP:
+		chg->has_dp = !!val->intval;
+		break;
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_set_prop_typec_power_role(chg, val->intval);
@@ -1039,6 +1046,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_POWER_NOW:
+	case POWER_SUPPLY_PROP_HAS_DP:
 #ifdef CONFIG_BQ2597X_CHARGE_PUMP_PIPA
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
