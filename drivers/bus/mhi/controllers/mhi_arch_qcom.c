@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
-#include <asm/dma-iommu.h>
 #include <linux/async.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -439,7 +438,7 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 	struct mhi_link_info *cur_link_info;
 	char node[32];
 	int ret;
-	int size = 0;
+	int size;
 	u16 linkstat;
 
 	if (!arch_info) {
@@ -493,11 +492,12 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 			return ret;
 		}
 
-		of_get_property(pdev->dev.of_node, "icc_peak_bw", &size);
-		if (!size)
-			return -EINVAL;
+		size = of_property_count_u32_elems(
+			mhi_dev->pci_dev->dev.of_node, "icc-peak-bw");
+		if (size <= 0)
+			return size ? size : -EINVAL;
 
-		arch_info->icc_peak_bw_len = size / sizeof(u32);
+		arch_info->icc_peak_bw_len = size;
 		arch_info->icc_peak_bw = devm_kcalloc(&mhi_dev->pci_dev->dev,
 						arch_info->icc_peak_bw_len,
 						sizeof(u32), GFP_KERNEL);
@@ -505,7 +505,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 			return -ENOMEM;
 
 		ret = of_property_read_u32_array(mhi_dev->pci_dev->dev.of_node,
-					"icc-peak-bw", arch_info->icc_peak_len);
+					"icc-peak-bw", arch_info->icc_peak_bw,
+					arch_info->icc_peak_bw_len);
 		if (ret)
 			return -EINVAL;
 
